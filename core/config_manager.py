@@ -42,6 +42,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "overlay_opacity": 0.92,
     "click_through": False,
     "always_on_top": True,
+    "follow_game_desktop": True,  # Only display on the virtual desktop where Hearthstone is present
     
     # Performance & caching
     "evaluation_cache_enabled": True,

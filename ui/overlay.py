@@ -272,6 +272,13 @@ class OverlayWindow(QMainWindow):
         self.web_companion = WebCompanionServer(port=8899)
         self.web_companion.start()
 
+        # Virtual Desktop & Cloak Guard (防多虚拟桌面穿透)
+        self._hidden_by_desktop_guard = False
+        self._desktop_guard_timer = QTimer(self)
+        self._desktop_guard_timer.setInterval(300)
+        self._desktop_guard_timer.timeout.connect(self._on_desktop_guard_tick)
+        self._desktop_guard_timer.start()
+
         # Audio & TTS alerts
         self.sound_engine = SoundEngine.get_instance()
         self.sound_engine.update_settings(
@@ -1509,6 +1516,11 @@ class OverlayWindow(QMainWindow):
         board_action = QAction("🎯 切换棋盘动态战术投影 (Alt+V)", self)
         board_action.triggered.connect(self.toggle_board_hud)
         tray_menu.addAction(board_action)
+
+        self.follow_desktop_action = QAction("🖥️ 仅在炉石所在桌面显示 (防多桌面穿透)", self, checkable=True)
+        self.follow_desktop_action.setChecked(self.config_manager.get("follow_game_desktop", True))
+        self.follow_desktop_action.triggered.connect(self._toggle_follow_desktop)
+        tray_menu.addAction(self.follow_desktop_action)
 
         hero_action = QAction("👑 竞技场开局英雄三选一推荐 (Ctrl+H)", self)
         hero_action.triggered.connect(self.show_hero_advisor_dialog)
@@ -3910,6 +3922,41 @@ class OverlayWindow(QMainWindow):
             target_x, target_y = self._calculate_dock_position(win_rect)
             if abs(self.x() - target_x) > 10 or abs(self.y() - target_y) > 10:
                 self.move(target_x, target_y)
+
+    def _on_desktop_guard_tick(self) -> None:
+        """
+        Monitors active virtual desktop and minimizes/restores overlay accordingly.
+        Prevents overlay from bleeding into unrelated virtual desktops (e.g. work/code/browser).
+        """
+        if not getattr(self, "config_manager", None) or not self.config_manager.get("follow_game_desktop", True):
+            return
+        game_on_active = self.window_finder.is_game_on_active_desktop()
+        if not game_on_active:
+            # Game is minimized or on another virtual desktop -> hide overlay
+            if self.isVisible() and not self._hidden_by_desktop_guard:
+                self._hidden_by_desktop_guard = True
+                self.hide()
+                if hasattr(self, "board_overlay") and self.board_overlay.isVisible():
+                    self.board_overlay.hide()
+        else:
+            # Game is visible on current active desktop -> restore overlay if we hid it
+            if self._hidden_by_desktop_guard:
+                self._hidden_by_desktop_guard = False
+                self.show()
+                if getattr(self, "auto_dock_enabled", False):
+                    win_rect = self.window_finder.find_window()
+                    if win_rect and win_rect.width > 0:
+                        tx, ty = self._calculate_dock_position(win_rect)
+                        self.move(tx, ty)
+
+    def _toggle_follow_desktop(self) -> None:
+        val = self.follow_desktop_action.isChecked()
+        self.config_manager.set("follow_game_desktop", val)
+        if not val and self._hidden_by_desktop_guard:
+            self._hidden_by_desktop_guard = False
+            self.show()
+        tip = "已开启：仅在炉石所在虚拟桌面显示（切到其他桌面或最小化自动隐藏）" if val else "已关闭：在所有虚拟桌面穿透显示"
+        self._on_status_updated(tip)
 
     def trigger_reevaluate(self) -> None:
         """Forces re-evaluation of current game state."""

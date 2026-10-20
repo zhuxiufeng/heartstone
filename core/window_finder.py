@@ -66,6 +66,66 @@ class WindowFinder:
         else:
             return self._find_generic()
 
+    def get_game_hwnd(self) -> Optional[int]:
+        """Returns the valid Hearthstone window HWND."""
+        if self.system != "Windows":
+            return None
+        last_h = getattr(self, "_last_hwnd", None)
+        if last_h:
+            try:
+                import win32gui
+                if win32gui.IsWindow(last_h):
+                    return last_h
+            except Exception:
+                pass
+        self._find_windows()
+        return getattr(self, "_last_hwnd", None)
+
+    def is_game_on_active_desktop(self) -> bool:
+        """
+        Determines whether Hearthstone is currently present on the active virtual desktop
+        and not minimized.
+        Returns:
+            True if game is visible on active desktop, or if game is not running yet.
+            False if game is minimized or on another virtual desktop (cloaked).
+        """
+        if self.system != "Windows":
+            return True
+        hwnd = self.get_game_hwnd()
+        if not hwnd:
+            # Game not running: don't hide overlay so user can still see waiting status
+            return True
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
+            dwmapi = ctypes.windll.dwmapi
+
+            # 1. Check if game is minimized (IsIconic)
+            if user32.IsIconic(hwnd):
+                return False
+
+            # 2. Check if game is cloaked by Windows DWM (e.g. on another virtual desktop)
+            # DWMWA_CLOAKED = 14. Non-zero means cloaked (DWM_CLOAKED_SHELL = 2 for other desktop)
+            cloaked = ctypes.c_int(0)
+            hr = dwmapi.DwmGetWindowAttribute(
+                wintypes.HWND(hwnd),
+                14,
+                ctypes.byref(cloaked),
+                ctypes.sizeof(cloaked),
+            )
+            if hr == 0 and cloaked.value != 0:
+                return False
+
+            # 3. Check if window is visible
+            if not user32.IsWindowVisible(hwnd):
+                return False
+
+            return True
+        except Exception as e:
+            logger.debug(f"Desktop guard check suppressed: {e}")
+            return True
+
     def _find_windows(self) -> Optional[WindowRect]:
         """Windows native client rect calculation using win32gui."""
         try:

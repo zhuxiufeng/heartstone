@@ -29,3 +29,10 @@ def test_draft_card_banners_scaling():
     # Width and height should scale proportionally (2x of 1080p)
     assert banners_4k[0].width == banners_1080[0].width * 2
     assert banners_4k[0].height == banners_1080[0].height * 2
+
+
+def test_is_game_on_active_desktop():
+    finder = WindowFinder()
+    # On non-Windows or when game not running, returns True by default
+    res = finder.is_game_on_active_desktop()
+    assert isinstance(res, bool)
