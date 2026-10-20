@@ -57,6 +57,10 @@ _CURRENT_STATE: Dict[str, Any] = {
     "resilience_badge": "",
     "resilience_verdict": "",
     "championship_dna": "",
+    "hypergeometric_gamble": "",
+    "tilt_status": "",
+    "mind_reading_summary": "",
+    "decision_tree_ascii": "",
 }
 
 _REPLAY_DATA: Dict[str, Any] = {}
@@ -110,6 +114,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="header">
         <div class="title">⚔️ 炉石对战掌上副屏</div>
         <div class="turn-badge" id="turn-badge">⚡ 回合 1 | 💎 1/1</div>
+    </div>
+
+    <!-- Tilt & Fatigue Status Header Badge -->
+    <div id="tilt-banner" style="display: none; background: rgba(30, 41, 59, 0.85); border: 1px solid #475569; border-radius: 6px; padding: 6px 10px; font-size: 11px; margin-bottom: 8px; color: #94a3b8;">
+        <span id="tilt-text">🎯 专注巅峰: 状态正佳</span>
     </div>
 
     <!-- Winrate & Match Status -->
@@ -178,6 +187,24 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="card" id="deduction-card" style="display: none; border-left: 4px solid #a855f7;">
         <div class="card-title" style="color: #c084fc;">🚫 敌方手牌逆向排查树</div>
         <div id="deduction-content" style="font-size: 11px; color: #f3e8ff; line-height: 1.5;"></div>
+    </div>
+
+    <!-- Hypergeometric Gamble Odds -->
+    <div class="card" id="hyper-card" style="display: none; border-left: 4px solid #a855f7;">
+        <div class="card-title" style="color: #c084fc;">🎲 牌库超几何神抽期望与搏命建议</div>
+        <div id="hyper-content" style="font-size: 11px; color: #e2e8f0; line-height: 1.5;"></div>
+    </div>
+
+    <!-- Mind-Reading Opponent Dossier -->
+    <div class="card" id="mind-card" style="display: none; border-left: 4px solid #06b6d4;">
+        <div class="card-title" style="color: #22d3ee;">🧠 敌方手牌心战透视 (Mind-Reading)</div>
+        <div id="mind-content" style="font-size: 11px; color: #cbd5e1; line-height: 1.5;"></div>
+    </div>
+
+    <!-- Tactical Decision Topology Tree -->
+    <div class="card" id="tree-card" style="display: none; border-left: 4px solid #10b981;">
+        <div class="card-title" style="color: #34d399;">🌲 战术多分支决策拓扑树</div>
+        <div id="tree-content" style="font-size: 10px; color: #cbd5e1; line-height: 1.4; font-family: monospace; white-space: pre-wrap; background: rgba(15, 23, 42, 0.6); padding: 8px; border-radius: 4px;"></div>
     </div>
 
     <!-- Two-Way Route Switcher Tabs -->
@@ -522,6 +549,42 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     document.getElementById('discover-text').innerText = data.discover_guidance;
                 } else {
                     discBox.style.display = 'none';
+                }
+
+                // Tilt & Fatigue status
+                const tiltBanner = document.getElementById('tilt-banner');
+                if (data.tilt_status) {
+                    tiltBanner.style.display = 'block';
+                    document.getElementById('tilt-text').innerText = data.tilt_status;
+                } else {
+                    tiltBanner.style.display = 'none';
+                }
+
+                // Hypergeometric gamble odds
+                const hyperCard = document.getElementById('hyper-card');
+                if (data.hypergeometric_gamble) {
+                    hyperCard.style.display = 'block';
+                    document.getElementById('hyper-content').innerText = data.hypergeometric_gamble;
+                } else {
+                    hyperCard.style.display = 'none';
+                }
+
+                // Mind reading
+                const mindCard = document.getElementById('mind-card');
+                if (data.mind_reading_summary) {
+                    mindCard.style.display = 'block';
+                    document.getElementById('mind-content').innerText = data.mind_reading_summary;
+                } else {
+                    mindCard.style.display = 'none';
+                }
+
+                // Decision tree topology
+                const treeCard = document.getElementById('tree-card');
+                if (data.decision_tree_ascii) {
+                    treeCard.style.display = 'block';
+                    document.getElementById('tree-content').innerText = data.decision_tree_ascii;
+                } else {
+                    treeCard.style.display = 'none';
                 }
             } catch (err) {}
         }

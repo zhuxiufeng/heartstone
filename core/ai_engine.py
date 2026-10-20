@@ -150,6 +150,11 @@ class PlayRecommendation:
     personal_weakness_reminder: str = ""
     resilience_report: Optional[BoardResilienceReport] = None
     resilience_verdict: str = ""
+    hypergeometric_report: Optional[Any] = None
+    hypergeometric_summary: str = ""
+    tilt_summary: str = ""
+    mind_reading_summary: str = ""
+    decision_tree_dict: Dict[str, Any] = field(default_factory=dict)
 
 
 class EvaluationCache:
@@ -998,6 +1003,29 @@ class AiEngine:
             action_tree_res.best_branch.resilience_score = resilience_rep.resilience_score
             action_tree_res.best_branch.resilience_badge = resilience_rep.badge_text
 
+        # 8.8 Hypergeometric Odds, Decision Tree Topology & Tilt Guard
+        from .hypergeometric_odds import HypergeometricOddsEngine
+        from .tactical_tree_visualizer import TacticalDecisionTree
+        from .tilt_guard import TiltGuard
+
+        hyper_rep = HypergeometricOddsEngine.evaluate_deck_odds(
+            remaining_deck=hand_cards,
+            enemy_hp=enemy_hp,
+            friendly_hp=friendly_hp,
+            enemy_board_attack=e_atk,
+            draws_next_turn=1,
+        )
+
+        tree_root = TacticalDecisionTree.build_tree(
+            action_tree_res=action_tree_res,
+            current_mana=current_mana,
+            friendly_hp=friendly_hp,
+            enemy_hp=enemy_hp,
+            opponent_class=opponent_class,
+        )
+        tree_dict = TacticalDecisionTree.to_dict(tree_root)
+        tilt_rep = TiltGuard.get_instance().evaluate_tilt()
+
         if use_llm and self._gemini_client:
             try:
                 rec = self._evaluate_play_with_llm(
@@ -1036,6 +1064,11 @@ class AiEngine:
                 rec.personal_weakness_reminder = personal_alert
                 rec.resilience_report = resilience_rep
                 rec.resilience_verdict = resilience_rep.detailed_verdict
+                rec.hypergeometric_report = hyper_rep
+                rec.hypergeometric_summary = hyper_rep.gamble_recommendation
+                rec.tilt_summary = f"{tilt_rep.tier_label}: {tilt_rep.action_directive}"
+                rec.mind_reading_summary = hand_read_str
+                rec.decision_tree_dict = tree_dict
                 return rec
             except Exception as e:
                 logger.warning(f"LLM Play call failed: {e}. Using fallback.")
@@ -1119,6 +1152,11 @@ class AiEngine:
             personal_weakness_reminder=personal_alert,
             resilience_report=resilience_rep,
             resilience_verdict=resilience_rep.detailed_verdict,
+            hypergeometric_report=hyper_rep,
+            hypergeometric_summary=hyper_rep.gamble_recommendation,
+            tilt_summary=f"{tilt_rep.tier_label}: {tilt_rep.action_directive}",
+            mind_reading_summary=hand_read_str,
+            decision_tree_dict=tree_dict,
         )
 
     def evaluate_play_turn_stream(

@@ -126,6 +126,8 @@ class OpponentHandCard:
     unplayed_manas: List[int] = field(default_factory=list) # Available mana values when opponent held this card
     excluded_roles: List[str] = field(default_factory=list) # Categories 100% ruled out
     negative_deduction_note: str = "" # Formatted deduction summary
+    provenance_badge: str = ""      # "🌟 起手原留牌", "⚡ 本轮新抽卡", "🔮 衍生发现牌", "🪙 幸运币"
+    psychological_alert: str = ""   # "🧠 心战推断: 疑似握有条件清场/爆发直伤"
 
 
 class HandTracker:
@@ -227,9 +229,27 @@ class HandTracker:
     def _deduce_card_role(self, card: OpponentHandCard) -> str:
         """Infer probable identity of an opponent card based on holding duration and context."""
         if card.is_coin:
+            card.provenance_badge = "🪙 幸运币"
             return "🪙 幸运币"
         if card.creator_card:
+            card.provenance_badge = f"🔮 衍生: 【{card.creator_card}】"
             return f"🔮 衍生: 来自【{card.creator_card}】"
+
+        if card.is_mulligan_keep:
+            card.provenance_badge = "🌟 起手原留牌"
+        elif card.turns_held <= 0:
+            card.provenance_badge = "⚡ 当回合神抽"
+        else:
+            card.provenance_badge = f"🃏 摸牌第{card.turn_added}回合"
+
+        # Psychological Condition & Bluff Deduction
+        manas = card.unplayed_manas
+        if len(manas) >= 3 and any(m >= 4 for m in manas):
+            card.psychological_alert = "🧠 心战推断: 拥有对应费用却连续多回合空过留存，极大概率是需特定场面触发的条件解牌 (如乱斗/亵渎) 或斩杀直伤！"
+        elif card.is_mulligan_keep and card.turns_held >= 4:
+            card.psychological_alert = "🧠 心战推断: 起手特意保留至今未出，绝非前期杂毛，锁定为决胜级质变卡牌！"
+        else:
+            card.psychological_alert = ""
 
         # Class-specific threat inference
         opp_threats = CLASS_ARENA_THREATS.get(getattr(self, "opponent_class", "UNKNOWN"), [])
@@ -248,6 +268,21 @@ class HandTracker:
             return "⚡ 本轮新抽卡"
         return f"捏牌 {card.turns_held} 轮"
 
+    def get_mind_reading_report(self) -> List[Dict[str, Any]]:
+        """Generates comprehensive mind-reading dossier of all cards in opponent's hand."""
+        report = []
+        for c in self.cards:
+            report.append({
+                "slot": c.slot,
+                "provenance": c.provenance_badge or ("🌟 起手原留牌" if c.is_mulligan_keep else "⚡ 抽牌"),
+                "turns_held": c.turns_held,
+                "deduction": c.deduction_label,
+                "negative_note": c.negative_deduction_note,
+                "psychological_alert": c.psychological_alert,
+                "creator": c.creator_card or "",
+            })
+        return report
+
     def init_opening_hand(self, card_count: int, has_coin: bool) -> None:
         """Called when opening hands are finalized after mulligan."""
         self.cards.clear()
@@ -264,6 +299,7 @@ class HandTracker:
                 is_coin=is_coin,
                 creator_card="幸运币" if is_coin else None,
             )
+            card.deduction_label = self._deduce_card_role(card)
             self.cards.append(card)
         logger.info(f"Initialized opponent opening hand: {card_count} cards (Coin={has_coin})")
 
@@ -282,6 +318,7 @@ class HandTracker:
             is_coin=False,
             creator_card=creator,
         )
+        new_card.deduction_label = self._deduce_card_role(new_card)
         self.cards.append(new_card)
         logger.info(f"Opponent added card to slot #{slot} (created by: {creator})")
         return new_card

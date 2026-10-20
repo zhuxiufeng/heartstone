@@ -199,6 +199,29 @@ class SoundEngine:
         self._play_wav_bytes(self._warning_wav)
         self._speak_text("烧绳倒计时！急救模式已启动！")
 
+    def notify_coach_directive(self, situation: str, detail: str = "") -> None:
+        """
+        Pro Coach Natural Voice Commentary:
+        Broadcasts tactical directives in authoritative, clear natural coach voice.
+        """
+        if not self.tts_enabled:
+            return
+        sit = situation.upper()
+        if "LETHAL" in sit:
+            text = "教练提醒：发现斩杀线！全员走脸，直接带走！"
+        elif "AOE" in sit or "WIPE" in sit:
+            threat_name = f"（{detail}）" if detail else ""
+            text = f"教练提醒：对面关键清场回合{threat_name}，手牌留点后劲，千万别全铺了！"
+        elif "GAMBLE" in sit:
+            text = "教练提醒：下轮神抽概率高，被动解场也是输，全员抢脸搏一把！"
+        elif "TILT" in sit:
+            text = "教练提醒：心态放平，刚才出牌太急了，深呼吸喝口水慢慢打！"
+        elif "DRAW_FIRST" in sit:
+            text = "教练提醒：先过牌，探明手牌再做随从交换！"
+        else:
+            text = f"教练战术：{detail or situation}"
+        self._speak_text(text)
+
     def voice_debrief_match(self, match_review: Any, won: bool) -> None:
         """Plays audio debriefing summary at game end."""
         grade = getattr(match_review, "match_grade", "A").split(" ")[0]

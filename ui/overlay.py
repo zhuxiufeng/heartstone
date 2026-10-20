@@ -2319,10 +2319,23 @@ class OverlayWindow(QMainWindow):
                 self._announced_face_pivot = True
                 self.sound_engine.notify_tactical_callout("全员走脸压血")
 
-            # 5.3 Update LAN Mobile Web Companion
+            # 5.3 Update LAN Mobile Web Companion with v8 Ultra metrics
             if hasattr(self, "web_companion"):
                 b1 = rec.best_branch
                 b2 = rec.alt_branch
+                from core.tactical_tree_visualizer import TacticalDecisionTree
+                from core.tilt_guard import TiltGuard
+                from core.highlight_recorder import HighlightClipRecorder
+
+                TiltGuard.get_instance().record_turn_action(duration_sec=3.5, blunders=len(rec.blunder_alerts))
+                mind_dossier = " | ".join([f"#{c['slot']} {c['provenance']}: {c['deduction']}" for c in self.hand_tracker.get_mind_reading_report()[:3]]) if hasattr(self, "hand_tracker") else ""
+
+                tree_ascii = ""
+                if b1:
+                    alts = [b2] if b2 else []
+                    tree_root = TacticalDecisionTree.build_tree(ActionTreeResult(b1, alts), mana, friendly_hp, enemy_hp, opp)
+                    tree_ascii = TacticalDecisionTree.to_ascii_tree(tree_root)
+
                 self.web_companion.update_state({
                     "mode": "PLAY",
                     "turn": turn,
@@ -2353,7 +2366,20 @@ class OverlayWindow(QMainWindow):
                     "negative_deductions": self.hand_tracker.get_negative_deductions() if hasattr(self, "hand_tracker") else [],
                     "resilience_badge": getattr(b1, "resilience_badge", "") if b1 else "",
                     "resilience_verdict": getattr(rec, "resilience_verdict", ""),
+                    "hypergeometric_gamble": getattr(rec, "hypergeometric_summary", ""),
+                    "tilt_status": getattr(rec, "tilt_summary", ""),
+                    "mind_reading_summary": mind_dossier,
+                    "decision_tree_ascii": tree_ascii,
                 })
+
+                # Coach voice commentary trigger
+                if hasattr(self, "sound_engine"):
+                    if b1 and b1.damage_to_face >= enemy_hp and enemy_hp > 0:
+                        self.sound_engine.notify_coach_directive("LETHAL")
+                    elif "孤注一掷" in getattr(rec, "hypergeometric_summary", ""):
+                        self.sound_engine.notify_coach_directive("GAMBLE")
+                    elif rec.aoe_threats and any("烈焰" in t or "乱斗" in t for t in rec.aoe_threats):
+                        self.sound_engine.notify_coach_directive("AOE")
 
             # 6. Render trading & mana planning with optimal trades, face pivot & positioning
             trade_text_parts = []
@@ -2883,6 +2909,22 @@ class OverlayWindow(QMainWindow):
 
         # Voice Debrief Summary
         self.sound_engine.voice_debrief_match(self._last_match_review, won)
+
+        # Update TiltGuard and Export Highlight
+        from core.tilt_guard import TiltGuard
+        from core.highlight_recorder import HighlightClipRecorder
+        TiltGuard.get_instance().record_match_finished(won=won, total_turns=len(self._turn_history))
+        if won:
+            try:
+                out_clip = os.path.expanduser("~/Pictures/Screenshots/arena_victory_highlight.png")
+                HighlightClipRecorder.get_instance().export_highlight(
+                    output_path=out_clip,
+                    event_type="LETHAL_WIN",
+                    title="🏆 竞技场胜场高光时刻",
+                    subtitle=f"对战【{opp_name}】大获全胜",
+                )
+            except Exception as ex:
+                logger.debug(f"Highlight export suppressed: {ex}")
 
         if hasattr(self, "board_overlay"):
             self.board_overlay.hide()
