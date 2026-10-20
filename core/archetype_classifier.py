@@ -20,6 +20,11 @@ class ArchetypeMatchReport:
     tactical_profile: str
     strategic_counter: str
     key_cards_seen: List[str] = field(default_factory=list)
+    posterior_probabilities: Dict[str, float] = field(default_factory=dict)
+    aoe_threat_probability_pct: int = 35
+    burn_threat_probability_pct: int = 30
+    removal_threat_probability_pct: int = 40
+    bayesian_dossier_text: str = ""
 
 
 # Archetype definitions for all 11 classes with signature keywords and card names
@@ -167,35 +172,102 @@ class OpponentArchetypeClassifier:
                 tactical_profile="对局尚在初期，等待敌方展现构筑核心特征",
                 strategic_counter="按费平滑拍怪，保持场面主动权与随从交换优势",
                 key_cards_seen=list(self.played_cards),
+                posterior_probabilities={"均势中速": 0.45, "其他流派": 0.55},
+                aoe_threat_probability_pct=35,
+                burn_threat_probability_pct=30,
+                removal_threat_probability_pct=40,
+                bayesian_dossier_text="样本不足(已出卡<2张)，采用竞技场基准中速先验分布。",
             )
 
         candidates = CLASS_ARCHETYPES[c_key]
-        best_score = 0
-        best_cand = candidates[0]
-        matched_seen = []
+        num_cands = len(candidates)
+        # Uniform initial prior
+        priors = [1.0 / num_cands] * num_cands
+        likelihoods = [1.0] * num_cands
 
         all_text = " ".join(self.played_cards)
-        for cand in candidates:
-            score = 0
-            seen_for_cand = []
-            for kw in cand["keywords"]:
-                if kw in all_text:
-                    score += 1
-                    seen_for_cand.append(kw)
-            if score > best_score:
-                best_score = score
-                best_cand = cand
-                matched_seen = seen_for_cand
 
-        total_cards = max(len(self.played_cards), 1)
-        conf = min(95, 40 + int((best_score / total_cards) * 75))
+        matched_seen_map = {}
+        for idx, cand in enumerate(candidates):
+            c_name = cand["name"]
+            matched_seen = []
+            for card in self.played_cards:
+                # Check if this card matches candidate's keywords
+                matches = any(kw in card for kw in cand["keywords"])
+                if matches:
+                    likelihoods[idx] *= 0.85
+                    matched_seen.append(card)
+                else:
+                    likelihoods[idx] *= 0.25
+            matched_seen_map[c_name] = matched_seen
+
+        # Compute unnormalized posterior
+        unnorm = [priors[i] * likelihoods[i] for i in range(num_cands)]
+        total_p = sum(unnorm)
+        if total_p <= 0:
+            posteriors = priors
+        else:
+            posteriors = [p / total_p for p in unnorm]
+
+        # Find best candidate
+        best_idx = max(range(num_cands), key=lambda i: posteriors[i])
+        best_cand = candidates[best_idx]
+        best_post = posteriors[best_idx]
+        conf = max(40, min(98, int(best_post * 100)))
+
+        post_dict = {candidates[i]["name"]: round(posteriors[i], 3) for i in range(num_cands)}
+
+        # Archetype threat profiles (AOE, Burn, Removal)
+        # Infer threat weights from archetype name & profile
+        aoe_accum = 0.0
+        burn_accum = 0.0
+        removal_accum = 0.0
+        for i, cand in enumerate(candidates):
+            weight = posteriors[i]
+            c_prof = cand["name"] + " " + cand["profile"]
+            # AOE
+            if "控制" in c_prof or "清场" in c_prof:
+                aoe_accum += weight * 0.80
+            elif "直伤" in c_prof or "中速" in c_prof:
+                aoe_accum += weight * 0.35
+            else:
+                aoe_accum += weight * 0.15
+            # Burn
+            if "直伤" in c_prof or "快攻" in c_prof:
+                burn_accum += weight * 0.85
+            elif "节奏" in c_prof:
+                burn_accum += weight * 0.40
+            else:
+                burn_accum += weight * 0.15
+            # Removal
+            if "控制" in c_prof:
+                removal_accum += weight * 0.75
+            elif "中速" in c_prof or "节奏" in c_prof:
+                removal_accum += weight * 0.45
+            else:
+                removal_accum += weight * 0.20
+
+        aoe_pct = min(95, max(10, int(aoe_accum * 100)))
+        burn_pct = min(95, max(10, int(burn_accum * 100)))
+        rem_pct = min(95, max(10, int(removal_accum * 100)))
+
+        post_desc = " | ".join(f"{k.split(' ')[0]}: {int(v*100)}%" for k, v in post_dict.items())
+        dossier = (
+            f"贝叶斯流派后验分布: [{post_desc}] ➔ 判定为【{best_cand['name']}】(置信度 {conf}%)\n"
+            f"动态威胁感知: AOE清场概率 {aoe_pct}% | 直伤斩杀概率 {burn_pct}% | 硬解威胁概率 {rem_pct}%"
+        )
 
         return ArchetypeMatchReport(
             archetype_name=best_cand["name"],
             confidence_pct=conf,
             tactical_profile=best_cand["profile"],
             strategic_counter=best_cand["counter"],
-            key_cards_seen=matched_seen[:3],
+            key_cards_seen=matched_seen_map.get(best_cand["name"], [])[:3],
+            posterior_probabilities=post_dict,
+            aoe_threat_probability_pct=aoe_pct,
+            burn_threat_probability_pct=burn_pct,
+            removal_threat_probability_pct=rem_pct,
+            bayesian_dossier_text=dossier,
         )
 
     def get_current_report(self) -> ArchetypeMatchReport:

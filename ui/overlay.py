@@ -2336,6 +2336,19 @@ class OverlayWindow(QMainWindow):
                     tree_root = TacticalDecisionTree.build_tree(ActionTreeResult(b1, alts), mana, friendly_hp, enemy_hp, opp)
                     tree_ascii = TacticalDecisionTree.to_ascii_tree(tree_root)
 
+                # Coach directive & Lethal flag evaluation
+                is_lth = bool(b1 and b1.damage_to_face >= enemy_hp and enemy_hp > 0)
+                if is_lth:
+                    c_dir = "绝杀战机已现！全部战力全力走脸斩杀！"
+                elif "孤注一掷" in getattr(rec, "hypergeometric_summary", ""):
+                    c_dir = "局势落后，唯有搏命神抽直伤/关键解牌，拼脸放手一搏！"
+                elif rec.aoe_threats and any("烈焰" in t or "乱斗" in t for t in rec.aoe_threats):
+                    c_dir = "进入敌方核心清场回合，注意克制下怪，防止一波清空！"
+                elif getattr(rec, "draw_first_directive", ""):
+                    c_dir = getattr(rec, "draw_first_directive", "")
+                else:
+                    c_dir = getattr(rec, "compass_directive", "") or "按费平滑出牌，稳固随从交换优势。"
+
                 self.web_companion.update_state({
                     "mode": "PLAY",
                     "turn": turn,
@@ -2370,11 +2383,13 @@ class OverlayWindow(QMainWindow):
                     "tilt_status": getattr(rec, "tilt_summary", ""),
                     "mind_reading_summary": mind_dossier,
                     "decision_tree_ascii": tree_ascii,
+                    "coach_directive": c_dir,
+                    "is_lethal": is_lth,
                 })
 
                 # Coach voice commentary trigger
                 if hasattr(self, "sound_engine"):
-                    if b1 and b1.damage_to_face >= enemy_hp and enemy_hp > 0:
+                    if is_lth:
                         self.sound_engine.notify_coach_directive("LETHAL")
                     elif "孤注一掷" in getattr(rec, "hypergeometric_summary", ""):
                         self.sound_engine.notify_coach_directive("GAMBLE")
@@ -2961,6 +2976,19 @@ class OverlayWindow(QMainWindow):
         )
         if hasattr(self, "web_companion"):
             self.web_companion.update_replay(self._current_replay_summary)
+
+        # Generate standalone interactive review dashboard
+        try:
+            from core.match_review_dashboard import MatchReviewDashboardGenerator
+            review_dir = os.path.expanduser("~/Pictures/Screenshots/match_reviews")
+            MatchReviewDashboardGenerator.generate_dashboard_html(
+                summary=self._current_replay_summary,
+                friendly_class=friendly_name,
+                opponent_class=opp_name,
+                output_dir=review_dir,
+            )
+        except Exception as e_dash:
+            logger.debug(f"Match review dashboard error: {e_dash}")
 
         # Update and show dedicated Game Over Frame
         self.game_over_title.setText(f"{'🏆 本局大获全胜！' if won else '💔 本局遗憾告负'}")

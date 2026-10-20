@@ -599,6 +599,291 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 """
 
 
+OBS_HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>炉石竞技场 AI · OBS 直播挂件</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: transparent;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            color: #f8fafc;
+            padding: 10px;
+        }
+        .obs-container {
+            width: 360px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            padding: 12px 14px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulseLethal {
+            0% { box-shadow: 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.9); }
+            100% { box-shadow: 0 0 0 rgba(239, 68, 68, 0.4); }
+        }
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+            padding-bottom: 6px;
+        }
+        .logo-box {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #38bdf8;
+            letter-spacing: 0.5px;
+        }
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px #ef4444;
+        }
+        .winrate-badge {
+            font-size: 12px;
+            font-weight: 800;
+            color: #34d399;
+            background: rgba(16, 185, 129, 0.15);
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .lethal-banner {
+            display: none;
+            background: linear-gradient(90deg, #dc2626, #f59e0b, #dc2626);
+            background-size: 200% 200%;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 800;
+            text-align: center;
+            padding: 6px 8px;
+            border-radius: 6px;
+            animation: pulseLethal 1.2s infinite;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+        }
+        .coach-box {
+            background: rgba(30, 41, 59, 0.6);
+            border-left: 3px solid #8b5cf6;
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #e2e8f0;
+        }
+        .coach-title {
+            color: #a78bfa;
+            font-weight: 700;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .tilt-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #94a3b8;
+        }
+        .tilt-bar-bg {
+            flex: 1;
+            margin-left: 8px;
+            height: 5px;
+            background: rgba(51, 65, 85, 0.5);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .tilt-bar-fill {
+            width: 15%;
+            height: 100%;
+            background: #10b981;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+        .action-box {
+            font-size: 11px;
+        }
+        .action-step {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+            color: #f1f5f9;
+        }
+        .action-num {
+            background: rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 700;
+        }
+        .chips-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            font-size: 10px;
+        }
+        .chip {
+            background: rgba(51, 65, 85, 0.4);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #cbd5e1;
+            border: 1px solid rgba(71, 85, 105, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="obs-container">
+        <div class="header-row">
+            <div class="logo-box">
+                <span class="live-dot"></span>
+                <span>ARENA PRO HUD</span>
+            </div>
+            <div class="winrate-badge" id="obs-winrate">胜率 50.0%</div>
+        </div>
+
+        <div class="lethal-banner" id="obs-lethal">
+            ⚡ LETHAL 发现绝杀战机！立即走脸终结 ⚡
+        </div>
+
+        <div class="coach-box" id="obs-coach-box">
+            <div class="coach-title">🎙️ 教练指令 (Pro Coach)</div>
+            <div id="obs-coach-text">等待战术数据推送...</div>
+        </div>
+
+        <div class="action-box" id="obs-actions-box">
+            <div id="obs-steps-list"></div>
+        </div>
+
+        <div class="chips-row" id="obs-chips">
+            <div class="chip" id="obs-slot-chip" style="display:none; color:#38bdf8;">📐 站位: 推荐 Slot 0</div>
+            <div class="chip" id="obs-var-chip" style="display:none; color:#f59e0b;">🎲 VaR: P50收割</div>
+            <div class="chip" id="obs-arch-chip" style="display:none; color:#c084fc;">🔮 对手: 均势中速</div>
+        </div>
+
+        <div class="tilt-row">
+            <span id="obs-tilt-label">心态: 心平气和 (0)</span>
+            <div class="tilt-bar-bg">
+                <div class="tilt-bar-fill" id="obs-tilt-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function updateObs() {
+            try {
+                const res = await fetch('/api/state');
+                if (res.status !== 200) return;
+                const d = await res.json();
+
+                if (d.winrate_pct !== undefined) {
+                    const wr = parseFloat(d.winrate_pct).toFixed(1);
+                    const el = document.getElementById('obs-winrate');
+                    el.innerText = `胜率 ${wr}%`;
+                    if (wr >= 60) { el.style.color = '#34d399'; }
+                    else if (wr <= 40) { el.style.color = '#f87171'; }
+                    else { el.style.color = '#38bdf8'; }
+                }
+
+                const lth = document.getElementById('obs-lethal');
+                if ((d.burst_danger && d.burst_danger.includes('斩杀')) || d.is_lethal || (d.plan_a_title && d.plan_a_title.includes('斩杀'))) {
+                    lth.style.display = 'block';
+                } else {
+                    lth.style.display = 'none';
+                }
+
+                const cText = document.getElementById('obs-coach-text');
+                if (d.coach_directive) {
+                    cText.innerText = d.coach_directive;
+                } else if (d.compass_directive) {
+                    cText.innerText = d.compass_directive;
+                } else if (d.resilience_verdict) {
+                    cText.innerText = d.resilience_verdict;
+                } else {
+                    cText.innerText = "按费平滑拍怪，保持场面主动权。";
+                }
+
+                const sList = document.getElementById('obs-steps-list');
+                sList.innerHTML = '';
+                const steps = d.plan_a_steps || [];
+                steps.slice(0, 3).forEach((st, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'action-step';
+                    div.innerHTML = `<span class="action-num">${idx+1}</span><span>${st}</span>`;
+                    sList.appendChild(div);
+                });
+
+                const slotChip = document.getElementById('obs-slot-chip');
+                if (d.positioning_advice) {
+                    slotChip.style.display = 'inline-block';
+                    slotChip.innerText = d.positioning_advice.slice(0, 26);
+                } else {
+                    slotChip.style.display = 'none';
+                }
+
+                const varChip = document.getElementById('obs-var-chip');
+                if (d.rng_badge) {
+                    varChip.style.display = 'inline-block';
+                    varChip.innerText = d.rng_badge.slice(0, 24);
+                } else {
+                    varChip.style.display = 'none';
+                }
+
+                const archChip = document.getElementById('obs-arch-chip');
+                if (d.archetype && d.archetype !== '--') {
+                    archChip.style.display = 'inline-block';
+                    archChip.innerText = `🔮 ${d.archetype.split(' ')[0]}`;
+                } else {
+                    archChip.style.display = 'none';
+                }
+
+                if (d.tilt_status) {
+                    const tLbl = document.getElementById('obs-tilt-label');
+                    tLbl.innerText = d.tilt_status.slice(0, 18);
+                    const fill = document.getElementById('obs-tilt-fill');
+                    if (d.tilt_status.includes('高危') || d.tilt_status.includes('极危')) {
+                        fill.style.width = '85%';
+                        fill.style.background = '#ef4444';
+                    } else if (d.tilt_status.includes('警戒')) {
+                        fill.style.width = '55%';
+                        fill.style.background = '#f59e0b';
+                    } else {
+                        fill.style.width = '25%';
+                        fill.style.background = '#10b981';
+                    }
+                }
+            } catch(e) {}
+        }
+        setInterval(updateObs, 250);
+        updateObs();
+    </script>
+</body>
+</html>
+"""
+
+
 class WebCompanionHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # Silent logger to prevent console spam
@@ -680,6 +965,30 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()
             self.wfile.write(json.dumps(_REPLAY_DATA, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/obs" or self.path.startswith("/obs?"):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(OBS_HTML_TEMPLATE.encode("utf-8"))
+        elif self.path in ("/review", "/review/latest") or self.path.startswith("/review"):
+            from .match_review_dashboard import MatchReviewDashboardGenerator
+            html_rep = MatchReviewDashboardGenerator.get_latest_html()
+            if not html_rep:
+                html_rep = "<html><body style='background:#090d16;color:#fff;font-family:sans-serif;padding:40px;text-align:center;'><h2>暂无最新对局复盘数据</h2><p>完成一场对局后将自动在此生成全维度交互式复盘大盘。</p></body></html>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(html_rep.encode("utf-8"))
+        elif self.path == "/api/meta/sync":
+            from .hsreplay_sync import HsreplaySync
+            HsreplaySync.get_instance().trigger_async_sync()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok", "message": "云端大数据增量同步已在后台触发"}).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()

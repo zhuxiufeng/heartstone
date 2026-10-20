@@ -37,6 +37,14 @@ from .synergy_radar import SynergyRadar, SynergyRadarReport
 from .hsreplay_sync import HsreplaySync
 from .blunder_detector import BlunderDetector, TurnSnapshot, BlunderItem, MatchReviewReport
 from .updater import UpdateChecker, UpdateInfo, CURRENT_VERSION
+from .hypergeometric_odds import HypergeometricOddsEngine, HypergeometricOddsReport
+from .tilt_guard import TiltGuard, TiltReport
+from .highlight_recorder import HighlightClipRecorder
+from .tactical_tree_visualizer import TacticalDecisionTree, DecisionNode
+from .monte_carlo_var import MonteCarloVarEngine, MonteCarloVarReport
+from .match_review_dashboard import MatchReviewDashboardGenerator
+from .archetype_classifier import OpponentArchetypeClassifier, ArchetypeMatchReport
+from .web_companion import WebCompanionServer
 
 __all__ = [
     "ConfigManager",
@@ -116,4 +124,17 @@ __all__ = [
     "UpdateChecker",
     "UpdateInfo",
     "CURRENT_VERSION",
+    "HypergeometricOddsEngine",
+    "HypergeometricOddsReport",
+    "TiltGuard",
+    "TiltReport",
+    "HighlightClipRecorder",
+    "TacticalDecisionTree",
+    "DecisionNode",
+    "MonteCarloVarEngine",
+    "MonteCarloVarReport",
+    "MatchReviewDashboardGenerator",
+    "OpponentArchetypeClassifier",
+    "ArchetypeMatchReport",
+    "WebCompanionServer",
 ]

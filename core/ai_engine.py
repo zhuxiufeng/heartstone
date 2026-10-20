@@ -155,6 +155,8 @@ class PlayRecommendation:
     tilt_summary: str = ""
     mind_reading_summary: str = ""
     decision_tree_dict: Dict[str, Any] = field(default_factory=dict)
+    var_report: Optional[Any] = None
+    var_summary: str = ""
 
 
 class EvaluationCache:
@@ -1026,6 +1028,33 @@ class AiEngine:
         tree_dict = TacticalDecisionTree.to_dict(tree_root)
         tilt_rep = TiltGuard.get_instance().evaluate_tilt()
 
+        # 8.7. Monte Carlo RNG Simulation & VaR
+        from .monte_carlo_var import MonteCarloVarEngine, MonteCarloVarReport
+        var_rep: Optional[MonteCarloVarReport] = None
+        var_summary_str = ""
+        for c in hand_cards:
+            if c.cost <= current_mana:
+                c_u = (c.name or "").upper()
+                if "奥术飞弹" in c_u or "ARCANE MISSILES" in c_u or "疯狂投弹者" in c_u:
+                    var_rep = MonteCarloVarEngine.simulate_random_missiles(
+                        action_name=c.name or "随机弹幕",
+                        missile_count=3,
+                        damage_per_missile=1,
+                        enemy_minions=[{"name": m.get("name", ""), "hp": m.get("health", 1), "divine_shield": m.get("divine_shield", False)} for m in e_minions],
+                        enemy_hero_hp=enemy_hp,
+                    )
+                    break
+                elif "闪电风暴" in c_u or "LIGHTNING STORM" in c_u:
+                    var_rep = MonteCarloVarEngine.simulate_aoe_damage_roll(
+                        spell_name=c.name or "闪电风暴",
+                        min_dmg=2,
+                        max_dmg=3,
+                        enemy_minions=[{"hp": m.get("health", 1), "divine_shield": m.get("divine_shield", False)} for m in e_minions],
+                    )
+                    break
+        if var_rep:
+            var_summary_str = f"{var_rep.risk_badge}: {var_rep.strategic_verdict}"
+
         if use_llm and self._gemini_client:
             try:
                 rec = self._evaluate_play_with_llm(
@@ -1157,6 +1186,8 @@ class AiEngine:
             tilt_summary=f"{tilt_rep.tier_label}: {tilt_rep.action_directive}",
             mind_reading_summary=hand_read_str,
             decision_tree_dict=tree_dict,
+            var_report=var_rep,
+            var_summary=var_summary_str,
         )
 
     def evaluate_play_turn_stream(
