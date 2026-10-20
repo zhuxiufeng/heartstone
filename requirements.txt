@@ -1,0 +1,9 @@
+PyQt5>=5.15.10
+mss>=9.0.1
+opencv-python-headless>=4.8.0
+pytesseract>=0.3.10
+google-generativeai>=0.8.0
+requests>=2.31.0
+pillow>=10.0.0
+pytest>=8.0.0
+pywin32>=306; sys_platform == 'win32'

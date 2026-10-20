@@ -1,0 +1,22 @@
+{
+  "gemini_api_key": "AIzaSyCcwSdG7d1PKFIetoDqmQAbAPhHWpoowkA",
+  "gemini_model": "gemini-1.5-flash",
+  "gemini_temperature": 0.3,
+  "hearthstone_log_dir": "C:\\Program Files (x86)\\Hearthstone\\Logs",
+  "ocr_lang": "chi_sim+eng",
+  "ocr_poll_interval_ms": 1000,
+  "animation_lock_duration_sec": 2.5,
+  "tesseract_cmd": "",
+  "window_title": "Hearthstone",
+  "window_class": "UnityWndClass",
+  "overlay_x": 1200,
+  "overlay_y": 50,
+  "overlay_width": 480,
+  "overlay_height": 680,
+  "wide_overlay_width": 640,
+  "overlay_opacity": 0.92,
+  "click_through": false,
+  "always_on_top": true,
+  "evaluation_cache_enabled": true,
+  "debug_mode": false
+}

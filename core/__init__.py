@@ -1,0 +1,119 @@
+"""
+Core modules for Hearthstone Arena AI Assistant.
+"""
+
+from .config_manager import ConfigManager
+from .card_db import CardDatabase, CardInfo
+from .window_finder import WindowFinder, WindowRect
+from .log_listener import LogListener
+from .ocr_engine import OcrWorker
+from .ai_engine import AiEngine, AssistantMode, DraftRecommendation, PlayRecommendation
+from .lethal_calculator import LethalCalculator, LethalResult
+from .secret_tracker import SecretTracker, TriggerType
+from .deck_tracker import DeckTracker, DeckStats
+from .mulligan_advisor import MulliganAdvisor, MulliganAdvice, MulliganChoice
+from .hand_tracker import HandTracker, OpponentHandCard
+from .synergy_engine import SynergyEngine, SynergyEvaluation
+from .coin_optimizer import CoinOptimizer, CoinStrategy
+from .topdeck_math import TopdeckMath, TopdeckAdvice
+from .matchup_blueprint import MatchupBlueprintEngine, MatchupStrategy
+from .ping_protector import PingProtector, PingProtectionAdvice
+from .mana_efficiency import ManaEfficiencyOptimizer, ManaEfficiencyPlan
+from .archetype_specializer import ArchetypeSpecializer, ArchetypeProfile, ArchetypeType
+from .punish_simulator import PunishSimulator, PunishAssessment
+from .card_advantage_engine import CardAdvantageEngine, ResourceAdvantagePlan, ResourceState
+from .blunder_shield import BlunderShield, BlunderAlert
+from .two_turn_lethal import TwoTurnLethalEngine, TwoTurnLethalPlan
+from .positioning_geometry import PositioningGeometry, PositioningAdvice
+from .mulligan_hand_reader import MulliganHandReader, MulliganHandAnalysis, SlotDeduction, CardOrigin
+from .draft_cap_enforcer import DraftCapEnforcer, DraftCapModifier
+from .hero_draft_advisor import HeroDraftAdvisor, HeroTierInfo
+from .action_tree_search import ActionTreeSearch, ActionTreeResult, ActionBranch
+from .match_history_learner import MatchHistoryLearner, MatchRecord
+from .discovery_pool_radar import DiscoveryPoolRadar, DiscoveryProbabilityReport, ThreatOdd
+from .sound_engine import SoundEngine
+from .token_inspector import TokenInspector, TokenInfo
+from .synergy_radar import SynergyRadar, SynergyRadarReport
+from .hsreplay_sync import HsreplaySync
+from .blunder_detector import BlunderDetector, TurnSnapshot, BlunderItem, MatchReviewReport
+from .updater import UpdateChecker, UpdateInfo, CURRENT_VERSION
+
+__all__ = [
+    "ConfigManager",
+    "CardDatabase",
+    "CardInfo",
+    "WindowFinder",
+    "WindowRect",
+    "LogListener",
+    "OcrWorker",
+    "AiEngine",
+    "AssistantMode",
+    "DraftRecommendation",
+    "PlayRecommendation",
+    "LethalCalculator",
+    "LethalResult",
+    "SecretTracker",
+    "TriggerType",
+    "DeckTracker",
+    "DeckStats",
+    "MulliganAdvisor",
+    "MulliganAdvice",
+    "MulliganChoice",
+    "HandTracker",
+    "OpponentHandCard",
+    "SynergyEngine",
+    "SynergyEvaluation",
+    "CoinOptimizer",
+    "CoinStrategy",
+    "TopdeckMath",
+    "TopdeckAdvice",
+    "MatchupBlueprintEngine",
+    "MatchupStrategy",
+    "PingProtector",
+    "PingProtectionAdvice",
+    "ManaEfficiencyOptimizer",
+    "ManaEfficiencyPlan",
+    "ArchetypeSpecializer",
+    "ArchetypeProfile",
+    "ArchetypeType",
+    "PunishSimulator",
+    "PunishAssessment",
+    "CardAdvantageEngine",
+    "ResourceAdvantagePlan",
+    "ResourceState",
+    "BlunderShield",
+    "BlunderAlert",
+    "TwoTurnLethalEngine",
+    "TwoTurnLethalPlan",
+    "PositioningGeometry",
+    "PositioningAdvice",
+    "MulliganHandReader",
+    "MulliganHandAnalysis",
+    "SlotDeduction",
+    "CardOrigin",
+    "DraftCapEnforcer",
+    "DraftCapModifier",
+    "HeroDraftAdvisor",
+    "HeroTierInfo",
+    "ActionTreeSearch",
+    "ActionTreeResult",
+    "ActionBranch",
+    "MatchHistoryLearner",
+    "MatchRecord",
+    "DiscoveryPoolRadar",
+    "DiscoveryProbabilityReport",
+    "ThreatOdd",
+    "SoundEngine",
+    "TokenInspector",
+    "TokenInfo",
+    "SynergyRadar",
+    "SynergyRadarReport",
+    "HsreplaySync",
+    "BlunderDetector",
+    "TurnSnapshot",
+    "BlunderItem",
+    "MatchReviewReport",
+    "UpdateChecker",
+    "UpdateInfo",
+    "CURRENT_VERSION",
+]
