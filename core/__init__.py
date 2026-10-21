@@ -62,6 +62,12 @@ from .master_copilot import MasterCoPilotEngine, CoPilotTurnPlan, CoPilotStep, C
 from .pre_cast_blunder_interceptor import PreCastBlunderInterceptor, BlunderInterceptAlert, InterceptType
 from .conversational_tts_streamer import ConversationalTtsStreamer
 from .mid_turn_pivot_engine import MidTurnPivotEngine
+from .neural_hand_silhouette import NeuralHandSilhouette, GhostCardSilhouette, HandSilhouetteReport
+from .future_pick_forecaster import FuturePickForecaster, DraftArchetype, FutureForecastReport
+from .what_if_sandbox import WhatIfSandbox, WhatIfSimulationReport
+from .instant_card_lens import InstantCardLens, CardLensBreakdown
+from .zero_cloud_engine import ZeroCloudEngine, ZeroCloudDecision
+from .post_match_talkshow import PostMatchTalkshow, TalkshowScriptReport
 
 __all__ = [
     "ConfigManager",
@@ -202,4 +208,18 @@ __all__ = [
     "InterceptType",
     "ConversationalTtsStreamer",
     "MidTurnPivotEngine",
+    "NeuralHandSilhouette",
+    "GhostCardSilhouette",
+    "HandSilhouetteReport",
+    "FuturePickForecaster",
+    "DraftArchetype",
+    "FutureForecastReport",
+    "WhatIfSandbox",
+    "WhatIfSimulationReport",
+    "InstantCardLens",
+    "CardLensBreakdown",
+    "ZeroCloudEngine",
+    "ZeroCloudDecision",
+    "PostMatchTalkshow",
+    "TalkshowScriptReport",
 ]

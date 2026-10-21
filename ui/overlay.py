@@ -95,6 +95,11 @@ try:
     from core.pre_cast_blunder_interceptor import PreCastBlunderInterceptor, BlunderInterceptAlert
     from core.conversational_tts_streamer import ConversationalTtsStreamer
     from core.mid_turn_pivot_engine import MidTurnPivotEngine
+    from core.neural_hand_silhouette import NeuralHandSilhouette, HandSilhouetteReport
+    from core.future_pick_forecaster import FuturePickForecaster
+    from core.instant_card_lens import InstantCardLens
+    from core.zero_cloud_engine import ZeroCloudEngine
+    from core.post_match_talkshow import PostMatchTalkshow
 except (ImportError, ValueError):
     from ..core.ai_engine import (
         AiEngine,
@@ -149,6 +154,11 @@ except (ImportError, ValueError):
     from ..core.pre_cast_blunder_interceptor import PreCastBlunderInterceptor, BlunderInterceptAlert
     from ..core.conversational_tts_streamer import ConversationalTtsStreamer
     from ..core.mid_turn_pivot_engine import MidTurnPivotEngine
+    from ..core.neural_hand_silhouette import NeuralHandSilhouette, HandSilhouetteReport
+    from ..core.future_pick_forecaster import FuturePickForecaster
+    from ..core.instant_card_lens import InstantCardLens
+    from ..core.zero_cloud_engine import ZeroCloudEngine
+    from ..core.post_match_talkshow import PostMatchTalkshow
 from .card_tooltip import CardTooltip
 from .inplace_hud import InPlaceHudManager
 from .board_overlay import BoardTacticalOverlay
@@ -2467,6 +2477,17 @@ class OverlayWindow(QMainWindow):
                 hand_age_rep = self.hand_age_intel.update_turn(turn) if hasattr(self, "hand_age_intel") else None
                 matchup_rep = DeckMatchupSandbox.evaluate_deck(rem_deck)
 
+                # v13 Supreme Omniscience: Neural Hand Silhouette
+                hand_raw = [
+                    {"slot": c.slot, "hold_turns": c.hold_turns, "origin": c.origin.value}
+                    for c in getattr(hand_age_rep, "cards", [])
+                ] if hand_age_rep else []
+                silhouette_rep = NeuralHandSilhouette.evaluate_hand_silhouette(
+                    opponent_class=opp,
+                    hand_cards_info=hand_raw,
+                    current_turn=turn,
+                )
+
                 # v12 Grandmaster Co-Pilot Step Plan & Conversational Voice Streaming
                 copilot_plan = MasterCoPilotEngine.build_step_plan(
                     action_sequence=b1.action_sequence if b1 else (rec.checklist_steps or rec.suggested_plays),
@@ -2540,6 +2561,7 @@ class OverlayWindow(QMainWindow):
                     "hand_age_summary": hand_age_rep.summary_markdown if hand_age_rep else "",
                     "matchup_sandbox": matchup_rep.to_dict(),
                     "copilot_plan": copilot_plan.to_dict(),
+                    "hand_silhouette": silhouette_rep.to_dict(),
                 })
 
                 # Coach voice commentary trigger
@@ -3960,6 +3982,14 @@ class OverlayWindow(QMainWindow):
 
         self.sc_emergency_reboot = QShortcut(QKeySequence("Alt+F12"), self)
         self.sc_emergency_reboot.activated.connect(self.trigger_rope_emergency_reboot)
+
+        self.sc_lens = QShortcut(QKeySequence("Alt+Z"), self)
+        self.sc_lens.activated.connect(self._trigger_instant_lens)
+
+    def _trigger_instant_lens(self) -> None:
+        """Alt+Z: triggers instant card lens inquiry."""
+        lens = InstantCardLens.inspect("烈焰风暴")
+        self._on_status_updated(f"AI透镜: {lens.card_name} ({lens.danger_tier}威胁)")
 
     def _on_voice_command(self, cmd_key: str, raw_text: str) -> None:
         """Handles hands-free voice commands."""

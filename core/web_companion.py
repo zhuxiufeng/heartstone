@@ -78,6 +78,10 @@ _CURRENT_STATE: Dict[str, Any] = {
     "matchup_sandbox": {},
     "career_summary": "",
     "copilot_plan": {},
+    "hand_silhouette": {},
+    "future_draft_forecast": {},
+    "what_if_report": {},
+    "talkshow_podcast": {},
 }
 
 _REPLAY_DATA: Dict[str, Any] = {}
@@ -1007,6 +1011,32 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
                 "has_intercept": alert is not None,
                 "alert": alert.to_dict() if alert else None,
             }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/what_if":
+            from .what_if_sandbox import WhatIfSandbox
+            report = WhatIfSandbox.simulate_what_if(
+                turn=int(data.get("turn", 5)),
+                actual_action_desc=data.get("actual_action", "全铺走脸"),
+                what_if_action_desc=data.get("what_if_action", "白吃解场控场"),
+                start_friendly_hp=int(data.get("friendly_hp", 20)),
+                start_enemy_hp=int(data.get("enemy_hp", 20)),
+                start_friendly_board_atk=int(data.get("friendly_board_atk", 6)),
+                start_enemy_board_atk=int(data.get("enemy_board_atk", 4)),
+                opponent_has_aoe_next_turn=bool(data.get("opponent_has_aoe", False)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(report.to_dict(), ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/lens":
+            from .instant_card_lens import InstantCardLens
+            q = data.get("query", "火球术")
+            breakdown = InstantCardLens.inspect(q)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(breakdown.to_dict(), ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
@@ -1156,6 +1186,24 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps(_CURRENT_STATE.get("copilot_plan", {}), ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/hand/silhouette":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(_CURRENT_STATE.get("hand_silhouette", {}), ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/draft/forecast":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(_CURRENT_STATE.get("future_draft_forecast", {}), ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/talkshow":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(_CURRENT_STATE.get("talkshow_podcast", {}), ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
