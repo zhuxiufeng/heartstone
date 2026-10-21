@@ -45,6 +45,13 @@ from .monte_carlo_var import MonteCarloVarEngine, MonteCarloVarReport
 from .match_review_dashboard import MatchReviewDashboardGenerator
 from .archetype_classifier import OpponentArchetypeClassifier, ArchetypeMatchReport
 from .web_companion import WebCompanionServer
+from .topdeck_matrix import TopdeckMatrix, TopdeckMatrixReport, CardTopdeckProfile
+from .multi_turn_lookahead import MultiTurnLookahead, LookaheadForecastReport, CandidatePlayOutcome
+from .game_phase_machine import GamePhaseMachine, GamePhase, GamePhaseState
+from .leak_buster import LeakBuster, LeakItem, LeakType, LeakAuditSummary
+from .capsule_hud import CapsuleHUD, CapsuleDisplayData
+from .global_hotkeys import GlobalHotkeyManager, HotkeyID
+from .i18n_engine import I18nEngine, t
 
 __all__ = [
     "ConfigManager",
@@ -137,4 +144,23 @@ __all__ = [
     "OpponentArchetypeClassifier",
     "ArchetypeMatchReport",
     "WebCompanionServer",
+    "TopdeckMatrix",
+    "TopdeckMatrixReport",
+    "CardTopdeckProfile",
+    "MultiTurnLookahead",
+    "LookaheadForecastReport",
+    "CandidatePlayOutcome",
+    "GamePhaseMachine",
+    "GamePhase",
+    "GamePhaseState",
+    "LeakBuster",
+    "LeakItem",
+    "LeakType",
+    "LeakAuditSummary",
+    "CapsuleHUD",
+    "CapsuleDisplayData",
+    "GlobalHotkeyManager",
+    "HotkeyID",
+    "I18nEngine",
+    "t",
 ]

@@ -61,6 +61,18 @@ _CURRENT_STATE: Dict[str, Any] = {
     "tilt_status": "",
     "mind_reading_summary": "",
     "decision_tree_ascii": "",
+    "topdeck_summary": "",
+    "topdeck_matrix": {},
+    "lookahead_summary": "",
+    "lookahead_table": "",
+    "game_phase": "EARLY_GAME",
+    "game_phase_zh": "前期节奏争夺",
+    "game_phase_weights": {},
+    "leak_score": 100.0,
+    "leak_grade": "S 宗师无暇",
+    "leak_summary": "",
+    "capsule_summary": "",
+    "locale": "zh-CN",
 }
 
 _REPLAY_DATA: Dict[str, Any] = {}
@@ -928,6 +940,17 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps({"status": "ok", "active_plan": plan}).encode("utf-8"))
+        elif self.path == "/api/i18n/set":
+            from .i18n_engine import I18nEngine
+            new_loc = str(data.get("locale", "zh-CN"))
+            success = I18nEngine.get_instance().set_locale(new_loc)
+            _CURRENT_STATE["locale"] = new_loc
+            _STATE_VERSION += 1
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok", "locale": new_loc, "success": success}).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
@@ -989,6 +1012,51 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps({"status": "ok", "message": "云端大数据增量同步已在后台触发"}).encode("utf-8"))
+        elif self.path == "/api/topdeck":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(_CURRENT_STATE.get("topdeck_matrix", {}), ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/lookahead":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "summary": _CURRENT_STATE.get("lookahead_summary", ""),
+                "table": _CURRENT_STATE.get("lookahead_table", ""),
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/phase":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "phase": _CURRENT_STATE.get("game_phase", "EARLY_GAME"),
+                "phase_zh": _CURRENT_STATE.get("game_phase_zh", "前期节奏争夺"),
+                "weights": _CURRENT_STATE.get("game_phase_weights", {}),
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/leak_buster":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "score": _CURRENT_STATE.get("leak_score", 100.0),
+                "grade": _CURRENT_STATE.get("leak_grade", "S 宗师无暇"),
+                "summary": _CURRENT_STATE.get("leak_summary", ""),
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/i18n":
+            from .i18n_engine import I18nEngine
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "locale": I18nEngine.get_instance().get_locale(),
+                "available_locales": I18nEngine.get_instance().get_available_locales(),
+            }, ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()

@@ -78,6 +78,13 @@ try:
     from core.voice_commander import VoiceCommander
     from core.championship_dna_exporter import ChampionshipDnaExporter
     from core.reboot_macro import RebootMacro
+    from core.global_hotkeys import GlobalHotkeyManager, HotkeyID
+    from core.capsule_hud import CapsuleHUD, CapsuleDisplayData
+    from core.i18n_engine import I18nEngine, t
+    from core.topdeck_matrix import TopdeckMatrix
+    from core.multi_turn_lookahead import MultiTurnLookahead
+    from core.game_phase_machine import GamePhaseMachine
+    from core.leak_buster import LeakBuster
 except (ImportError, ValueError):
     from ..core.ai_engine import (
         AiEngine,
@@ -115,6 +122,13 @@ except (ImportError, ValueError):
     from ..core.voice_commander import VoiceCommander
     from ..core.championship_dna_exporter import ChampionshipDnaExporter
     from ..core.reboot_macro import RebootMacro
+    from ..core.global_hotkeys import GlobalHotkeyManager, HotkeyID
+    from ..core.capsule_hud import CapsuleHUD, CapsuleDisplayData
+    from ..core.i18n_engine import I18nEngine, t
+    from ..core.topdeck_matrix import TopdeckMatrix
+    from ..core.multi_turn_lookahead import MultiTurnLookahead
+    from ..core.game_phase_machine import GamePhaseMachine
+    from ..core.leak_buster import LeakBuster
 from .card_tooltip import CardTooltip
 from .inplace_hud import InPlaceHudManager
 from .board_overlay import BoardTacticalOverlay
@@ -301,6 +315,17 @@ class OverlayWindow(QMainWindow):
         self.voice_commander = VoiceCommander.get_instance()
         self.voice_commander.register_callback(self._on_voice_command)
         self.voice_commander.start_listening()
+
+        # v10 Apex: Initialize i18n & Global OS-Level Hotkeys
+        initial_locale = self.config_manager.get("locale", "zh-CN")
+        I18nEngine.get_instance().set_locale(initial_locale)
+
+        self.global_hotkey_manager = GlobalHotkeyManager.get_instance()
+        self.global_hotkey_manager.register_callback(HotkeyID.TOGGLE_OVERLAY, self._on_hotkey_toggle_overlay)
+        self.global_hotkey_manager.register_callback(HotkeyID.TOGGLE_TREE, self._on_hotkey_toggle_tree)
+        self.global_hotkey_manager.register_callback(HotkeyID.SNAPSHOT_ANALYSIS, self._on_hotkey_snapshot)
+        if self.config_manager.get("global_hotkeys_enabled", True):
+            self.global_hotkey_manager.start()
 
         # Background update check
         UpdateChecker.check_for_updates(self._on_update_checked)
@@ -2361,6 +2386,48 @@ class OverlayWindow(QMainWindow):
                 else:
                     c_dir = getattr(rec, "compass_directive", "") or "按费平滑出牌，稳固随从交换优势。"
 
+                # v10 Apex: Topdeck Matrix, Multi-Turn Lookahead, Game Phase, Capsule HUD
+                rem_deck = self.deck_tracker.get_stats().remaining_cards if hasattr(self, "deck_tracker") else []
+                topdeck_rep = TopdeckMatrix.evaluate(
+                    remaining_cards=rem_deck,
+                    friendly_hp=friendly_hp,
+                    enemy_hp=enemy_hp,
+                    friendly_field_atk=b1.damage_to_face if b1 else 0,
+                    enemy_field_atk=getattr(rec, "enemy_board_attack", 0),
+                    available_mana=mana,
+                )
+
+                friendly_minions_list = [{"attack": getattr(m, "attack", 0), "health": getattr(m, "health", 0)} for m in getattr(rec, "friendly_minions", [])]
+                enemy_minions_list = [{"attack": getattr(m, "attack", 0), "health": getattr(m, "health", 0)} for m in getattr(rec, "enemy_minions", [])]
+                lookahead_rep = MultiTurnLookahead.evaluate_horizon(
+                    friendly_minions=friendly_minions_list,
+                    enemy_minions=enemy_minions_list,
+                    friendly_hp=friendly_hp,
+                    enemy_hp=enemy_hp,
+                    opponent_class=opp,
+                    current_turn=turn,
+                )
+
+                phase_state = GamePhaseMachine.evaluate(
+                    current_turn=turn,
+                    available_mana=mana,
+                    remaining_deck_count=self.deck_tracker.get_stats().total_remaining if hasattr(self, "deck_tracker") else 20,
+                    friendly_hp=friendly_hp,
+                    enemy_hp=enemy_hp,
+                )
+
+                miracle_top = topdeck_rep.miracle_outs[0].card_name if topdeck_rep.miracle_outs else ""
+                miracle_prob = topdeck_rep.miracle_outs[0].draw_probability_pct if topdeck_rep.miracle_outs else 0.0
+                capsule_data = CapsuleHUD.format_display(
+                    has_lethal=is_lth,
+                    lethal_desc=c_dir if is_lth else "",
+                    primary_action=b1.action_sequence[0] if (b1 and b1.action_sequence) else "稳健控场",
+                    winrate_pct=b1.projected_winrate if b1 else 50.0,
+                    miracle_card=miracle_top,
+                    miracle_pct=miracle_prob,
+                    is_capsule_active=getattr(self, "is_compact_mode", False),
+                )
+
                 self.web_companion.update_state({
                     "mode": "PLAY",
                     "turn": turn,
@@ -2397,6 +2464,19 @@ class OverlayWindow(QMainWindow):
                     "decision_tree_ascii": tree_ascii,
                     "coach_directive": c_dir,
                     "is_lethal": is_lth,
+                    "topdeck_summary": topdeck_rep.summary_markdown,
+                    "topdeck_matrix": topdeck_rep.to_dict(),
+                    "lookahead_summary": lookahead_rep.summary_markdown,
+                    "lookahead_table": lookahead_rep.forecast_table_ascii,
+                    "game_phase": phase_state.phase.value,
+                    "game_phase_zh": phase_state.phase_name_zh,
+                    "game_phase_weights": {
+                        "tempo": phase_state.tempo_weight,
+                        "card_advantage": phase_state.card_advantage_weight,
+                        "face_pressure": phase_state.face_pressure_weight,
+                        "survival": phase_state.survival_weight,
+                    },
+                    "capsule_summary": capsule_data.status_summary_line,
                 })
 
                 # Coach voice commentary trigger
@@ -3773,6 +3853,24 @@ class OverlayWindow(QMainWindow):
         self.sc_rope = QShortcut(QKeySequence("Alt+R"), self)
         self.sc_rope.activated.connect(self.toggle_rope_mode)
 
+    def _on_hotkey_toggle_overlay(self) -> None:
+        """Windows global hotkey: Ctrl+Shift+H."""
+        if self.isVisible():
+            self.hide()
+        else:
+            self.show()
+            self.raise_()
+            self.activateWindow()
+
+    def _on_hotkey_toggle_tree(self) -> None:
+        """Windows global hotkey: Ctrl+Shift+T."""
+        if hasattr(self, "show_tactical_tree_dialog"):
+            self.show_tactical_tree_dialog()
+
+    def _on_hotkey_snapshot(self) -> None:
+        """Windows global hotkey: Ctrl+Shift+S."""
+        self._on_status_updated("已捕获对局战况分析快照")
+
         self.sc_board = QShortcut(QKeySequence("Alt+V"), self)
         self.sc_board.activated.connect(self.toggle_board_hud)
 
@@ -4285,6 +4383,12 @@ class OverlayWindow(QMainWindow):
                 self.web_companion.stop()
         except Exception as e:
             logger.warning(f"Error stopping WebCompanion: {e}")
+
+        try:
+            if hasattr(self, "global_hotkey_manager"):
+                self.global_hotkey_manager.stop()
+        except Exception as e:
+            logger.warning(f"Error stopping GlobalHotkeyManager: {e}")
 
         # 2. Save cache & configs
         self.ai_engine.cache.save()

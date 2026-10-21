@@ -44,6 +44,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "always_on_top": True,
     "follow_game_desktop": True,  # Only display on the virtual desktop where Hearthstone is present
     
+    # v10 Apex additions: i18n, capsule HUD, global hotkeys
+    "locale": "zh-CN",
+    "capsule_mode": False,
+    "global_hotkeys_enabled": True,
+    "hotkey_toggle_overlay": "Ctrl+Shift+H",
+    "hotkey_toggle_tree": "Ctrl+Shift+T",
+    "hotkey_snapshot": "Ctrl+Shift+S",
+    
     # Performance & caching
     "evaluation_cache_enabled": True,
     "debug_mode": False,
