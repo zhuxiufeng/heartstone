@@ -1037,6 +1037,184 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps(breakdown.to_dict(), ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/mental/profile":
+            from .mental_bluff_engine import MentalBluffEngine
+            history = data.get("turn_history", [])
+            profile = MentalBluffEngine.analyze_opponent_style(history)
+            bluff = MentalBluffEngine.evaluate_strategic_bluff(
+                player_health=int(data.get("player_health", 20)),
+                opponent_health=int(data.get("opponent_health", 20)),
+                board_attack=int(data.get("board_attack", 6)),
+                hand_damage_available=int(data.get("hand_damage", 0)),
+                opponent_profile=profile,
+                current_winrate=float(data.get("current_winrate", 45.0)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "profile": {
+                    "style": profile.style.value,
+                    "style_label": profile.style_label,
+                    "confidence_pct": profile.confidence_pct,
+                    "avg_turn_duration_sec": profile.avg_turn_duration_sec,
+                    "hover_rate_per_turn": profile.hover_rate_per_turn,
+                    "trade_preference_score": profile.trade_preference_score,
+                    "bait_tolerance_factor": profile.bait_tolerance_factor,
+                    "bluff_vulnerability_score": profile.bluff_vulnerability_score,
+                    "tactical_advice": profile.tactical_advice,
+                },
+                "bluff": {
+                    "is_viable": bluff.is_viable,
+                    "bluff_action": bluff.bluff_action,
+                    "bluff_ev": bluff.bluff_ev,
+                    "success_probability_pct": bluff.success_probability_pct,
+                    "opponent_reaction_prediction": bluff.opponent_reaction_prediction,
+                    "fail_risk_description": bluff.fail_risk_description,
+                    "speech_prompt": bluff.speech_prompt,
+                }
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/tactical/setup":
+            from .tactical_setup_planner import TacticalSetupPlanner
+            plans = TacticalSetupPlanner.plan_setup_lines(
+                friendly_board=data.get("friendly_board", []),
+                enemy_board=data.get("enemy_board", []),
+                friendly_hand=data.get("friendly_hand", []),
+                current_mana=int(data.get("current_mana", 4)),
+                next_turn_mana=int(data.get("next_turn_mana", 5)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            plans_data = [{
+                "category": p.category.value,
+                "name": p.name,
+                "confidence_score": p.confidence_score,
+                "t0_action_description": p.t0_action_description,
+                "t1_payoff_description": p.t1_payoff_description,
+                "expected_tempo_gain": p.expected_tempo_gain,
+                "summary_markdown": p.summary_markdown,
+                "steps": [
+                    {
+                        "turn_offset": s.turn_offset,
+                        "action_type": s.action_type,
+                        "card_or_minion_name": s.card_or_minion_name,
+                        "target_name": s.target_name,
+                        "intent": s.intent,
+                    } for s in p.steps
+                ]
+            } for p in plans]
+            self.wfile.write(json.dumps({"plans": plans_data, "total_plans": len(plans_data)}, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/miracle/path":
+            from .miracle_inversion_engine import MiracleInversionEngine
+            res = MiracleInversionEngine.evaluate_game_attitude(
+                winrate_pct=float(data.get("winrate_pct", 15.0)),
+                player_hp=int(data.get("player_hp", 10)),
+                enemy_hp=int(data.get("enemy_hp", 16)),
+                enemy_board_attack=int(data.get("enemy_board_attack", 12)),
+                player_board_attack=int(data.get("player_board_attack", 6)),
+                deck_remaining=data.get("deck_remaining", []),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "is_miracle_needed": res.is_miracle_needed,
+                "risk_attitude": res.risk_attitude.value,
+                "attitude_label": res.attitude_label,
+                "conventional_winrate_pct": res.conventional_winrate_pct,
+                "miracle_winrate_pct": res.miracle_winrate_pct,
+                "winrate_gain_pct": res.winrate_gain_pct,
+                "gamble_line_directive": res.gamble_line_directive,
+                "gamble_hypotheses": res.gamble_hypotheses,
+                "required_topdecks": res.required_topdecks,
+                "speech_warning": res.speech_warning,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/reinforce/evolve":
+            from .self_evolving_reinforcement import SelfEvolvingReinforcement
+            cards = data.get("deck_cards", ["奥术智慧", "火球术", "寒冰箭"])
+            ser = SelfEvolvingReinforcement()
+            weights = ser.run_local_self_play(cards)
+            blindspots = ser.get_active_blindspot_warnings()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok",
+                "evolved_weights": {
+                    k: {
+                        "card_name": v.card_name,
+                        "base_weight": v.base_weight,
+                        "evolving_delta": v.evolving_delta,
+                        "effective_weight": v.effective_weight,
+                        "meta_affinity_trend": v.meta_affinity_trend,
+                    } for k, v in weights.items()
+                },
+                "blindspots": [
+                    {
+                        "blindspot_id": b.blindspot_id,
+                        "category": b.category,
+                        "occurrence_count": b.occurrence_count,
+                        "severity_level": b.severity_level,
+                        "description": b.description,
+                        "coaching_rule": b.coaching_rule,
+                    } for b in blindspots
+                ]
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/fatigue/horizon":
+            from .fatigue_endgame_horizon import FatigueEndgameHorizon
+            rep = FatigueEndgameHorizon.calculate_endgame_horizon(
+                my_deck_count=int(data.get("my_deck_count", 5)),
+                my_hand=data.get("my_hand", []),
+                my_hp=int(data.get("my_hp", 20)),
+                my_armor=int(data.get("my_armor", 0)),
+                opp_deck_count=int(data.get("opp_deck_count", 2)),
+                opp_hand_count=int(data.get("opp_hand_count", 4)),
+                opp_hp=int(data.get("opp_hp", 18)),
+                opp_armor=int(data.get("opp_armor", 0)),
+                opp_class=data.get("opp_class", "Warrior"),
+                current_turn=int(data.get("current_turn", 12)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "verdict": rep.verdict.value,
+                "verdict_label": rep.verdict_label,
+                "fatigue_differential_turns": rep.fatigue_differential_turns,
+                "strategic_directive": rep.strategic_directive,
+                "summary_markdown": rep.summary_markdown,
+                "my_resource": {
+                    "remaining_cards": rep.my_resource.remaining_cards_count,
+                    "effective_health": rep.my_resource.total_effective_health,
+                    "removal_value": rep.my_resource.total_removal_value,
+                },
+                "opp_resource": {
+                    "remaining_cards": rep.opp_resource.remaining_cards_count,
+                    "effective_health": rep.opp_resource.total_effective_health,
+                    "removal_value": rep.opp_resource.total_removal_value,
+                }
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/voice/ask":
+            from .interactive_voice_brain import InteractiveVoiceBrain
+            q = data.get("query", "大师我下回合能斩杀吗？")
+            ans = InteractiveVoiceBrain.answer_query(q, _CURRENT_STATE)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "intent": ans.intent.value,
+                "recognized_query": ans.recognized_query,
+                "spoken_answer": ans.spoken_answer,
+                "tactical_action_ref": ans.tactical_action_ref,
+                "confidence_score": ans.confidence_score,
+            }, ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
@@ -1204,6 +1382,61 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps(_CURRENT_STATE.get("talkshow_podcast", {}), ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/mental/profile":
+            from .mental_bluff_engine import MentalBluffEngine
+            profile = MentalBluffEngine.analyze_opponent_style()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "style": profile.style.value,
+                "style_label": profile.style_label,
+                "confidence_pct": profile.confidence_pct,
+                "tactical_advice": profile.tactical_advice,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/fatigue/horizon":
+            from .fatigue_endgame_horizon import FatigueEndgameHorizon
+            rep = FatigueEndgameHorizon.calculate_endgame_horizon(
+                my_deck_count=int(_CURRENT_STATE.get("my_deck_count", 10)),
+                my_hand=_CURRENT_STATE.get("my_hand", []),
+                my_hp=int(_CURRENT_STATE.get("friendly_hp", 30)),
+                my_armor=int(_CURRENT_STATE.get("friendly_armor", 0)),
+                opp_deck_count=int(_CURRENT_STATE.get("opp_deck_count", 10)),
+                opp_hand_count=int(_CURRENT_STATE.get("opp_hand_count", 4)),
+                opp_hp=int(_CURRENT_STATE.get("opponent_health", 30)),
+                opp_armor=int(_CURRENT_STATE.get("opp_armor", 0)),
+                opp_class=_CURRENT_STATE.get("opponent_class", "Warrior"),
+                current_turn=int(_CURRENT_STATE.get("turn", 5)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "verdict": rep.verdict.value,
+                "verdict_label": rep.verdict_label,
+                "strategic_directive": rep.strategic_directive,
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/blindspots":
+            from .self_evolving_reinforcement import SelfEvolvingReinforcement
+            ser = SelfEvolvingReinforcement()
+            blindspots = ser.get_active_blindspot_warnings()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps([
+                {
+                    "blindspot_id": b.blindspot_id,
+                    "category": b.category,
+                    "occurrence_count": b.occurrence_count,
+                    "severity_level": b.severity_level,
+                    "description": b.description,
+                    "coaching_rule": b.coaching_rule,
+                } for b in blindspots
+            ], ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()

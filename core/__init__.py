@@ -68,6 +68,12 @@ from .what_if_sandbox import WhatIfSandbox, WhatIfSimulationReport
 from .instant_card_lens import InstantCardLens, CardLensBreakdown
 from .zero_cloud_engine import ZeroCloudEngine, ZeroCloudDecision
 from .post_match_talkshow import PostMatchTalkshow, TalkshowScriptReport
+from .mental_bluff_engine import MentalBluffEngine, OpponentMentalProfile, OpponentStyle, BluffOpportunity
+from .tactical_setup_planner import TacticalSetupPlanner, TacticalSetupPlan, SetupCategory, SetupStep
+from .miracle_inversion_engine import MiracleInversionEngine, MiracleGamblePath, RiskAttitude
+from .self_evolving_reinforcement import SelfEvolvingReinforcement, CardEvolvingWeight, PersonalBlindspot
+from .fatigue_endgame_horizon import FatigueEndgameHorizon, FatigueEndgameReport, EndgameVerdict, ResourcePool
+from .interactive_voice_brain import InteractiveVoiceBrain, VoiceBrainResponse, VoiceIntent
 
 __all__ = [
     "ConfigManager",
@@ -222,4 +228,25 @@ __all__ = [
     "ZeroCloudDecision",
     "PostMatchTalkshow",
     "TalkshowScriptReport",
+    "MentalBluffEngine",
+    "OpponentMentalProfile",
+    "OpponentStyle",
+    "BluffOpportunity",
+    "TacticalSetupPlanner",
+    "TacticalSetupPlan",
+    "SetupCategory",
+    "SetupStep",
+    "MiracleInversionEngine",
+    "MiracleGamblePath",
+    "RiskAttitude",
+    "SelfEvolvingReinforcement",
+    "CardEvolvingWeight",
+    "PersonalBlindspot",
+    "FatigueEndgameHorizon",
+    "FatigueEndgameReport",
+    "EndgameVerdict",
+    "ResourcePool",
+    "InteractiveVoiceBrain",
+    "VoiceBrainResponse",
+    "VoiceIntent",
 ]

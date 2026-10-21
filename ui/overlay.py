@@ -100,6 +100,12 @@ try:
     from core.instant_card_lens import InstantCardLens
     from core.zero_cloud_engine import ZeroCloudEngine
     from core.post_match_talkshow import PostMatchTalkshow
+    from core.mental_bluff_engine import MentalBluffEngine, OpponentMentalProfile
+    from core.tactical_setup_planner import TacticalSetupPlanner
+    from core.miracle_inversion_engine import MiracleInversionEngine
+    from core.self_evolving_reinforcement import SelfEvolvingReinforcement
+    from core.fatigue_endgame_horizon import FatigueEndgameHorizon
+    from core.interactive_voice_brain import InteractiveVoiceBrain
 except (ImportError, ValueError):
     from ..core.ai_engine import (
         AiEngine,
@@ -159,6 +165,12 @@ except (ImportError, ValueError):
     from ..core.instant_card_lens import InstantCardLens
     from ..core.zero_cloud_engine import ZeroCloudEngine
     from ..core.post_match_talkshow import PostMatchTalkshow
+    from ..core.mental_bluff_engine import MentalBluffEngine, OpponentMentalProfile
+    from ..core.tactical_setup_planner import TacticalSetupPlanner
+    from ..core.miracle_inversion_engine import MiracleInversionEngine
+    from ..core.self_evolving_reinforcement import SelfEvolvingReinforcement
+    from ..core.fatigue_endgame_horizon import FatigueEndgameHorizon
+    from ..core.interactive_voice_brain import InteractiveVoiceBrain
 from .card_tooltip import CardTooltip
 from .inplace_hud import InPlaceHudManager
 from .board_overlay import BoardTacticalOverlay
