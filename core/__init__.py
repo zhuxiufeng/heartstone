@@ -58,6 +58,10 @@ from .mobile_remote_controller import MobileRemoteController, RemoteCommandType,
 from .esports_caster import EsportsCaster, VoiceAnswer, CasterCommentary, CasterEventType
 from .deck_matchup_sandbox import DeckMatchupSandbox, DeckMatchupReport, ClassMatchupStats
 from .arena_career_vault import ArenaCareerVault, ArenaRunRecord, CareerSummary
+from .master_copilot import MasterCoPilotEngine, CoPilotTurnPlan, CoPilotStep, CoPilotStepType
+from .pre_cast_blunder_interceptor import PreCastBlunderInterceptor, BlunderInterceptAlert, InterceptType
+from .conversational_tts_streamer import ConversationalTtsStreamer
+from .mid_turn_pivot_engine import MidTurnPivotEngine
 
 __all__ = [
     "ConfigManager",
@@ -189,4 +193,13 @@ __all__ = [
     "ArenaCareerVault",
     "ArenaRunRecord",
     "CareerSummary",
+    "MasterCoPilotEngine",
+    "CoPilotTurnPlan",
+    "CoPilotStep",
+    "CoPilotStepType",
+    "PreCastBlunderInterceptor",
+    "BlunderInterceptAlert",
+    "InterceptType",
+    "ConversationalTtsStreamer",
+    "MidTurnPivotEngine",
 ]

@@ -77,6 +77,7 @@ _CURRENT_STATE: Dict[str, Any] = {
     "hand_age_summary": "",
     "matchup_sandbox": {},
     "career_summary": "",
+    "copilot_plan": {},
 }
 
 _REPLAY_DATA: Dict[str, Any] = {}
@@ -970,6 +971,42 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
                 "message": result.message,
                 "payload": result.payload,
             }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/copilot/advance":
+            from .master_copilot import MasterCoPilotEngine
+            step = MasterCoPilotEngine.get_instance().advance_current_step()
+            if MasterCoPilotEngine.get_instance().current_plan:
+                _CURRENT_STATE["copilot_plan"] = MasterCoPilotEngine.get_instance().current_plan.to_dict()
+                _STATE_VERSION += 1
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok",
+                "advanced_to": step.to_dict() if step else None,
+                "is_completed": MasterCoPilotEngine.get_instance().current_plan.is_completed if MasterCoPilotEngine.get_instance().current_plan else True,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/copilot/intercept":
+            from .pre_cast_blunder_interceptor import PreCastBlunderInterceptor
+            alert = PreCastBlunderInterceptor.check_action(
+                intended_action_type=data.get("action_type", "ATTACK"),
+                intended_source_name=data.get("source_name", ""),
+                intended_target_name=data.get("target_name", ""),
+                enemy_hp=int(data.get("enemy_hp", 30)),
+                board_total_lethal_damage=int(data.get("lethal_damage", 0)),
+                available_mana=int(data.get("available_mana", 1)),
+                target_has_divine_shield=bool(data.get("has_divine_shield", False)),
+                source_attack=int(data.get("source_attack", 0)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok",
+                "has_intercept": alert is not None,
+                "alert": alert.to_dict() if alert else None,
+            }, ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
@@ -1113,6 +1150,12 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps(_CURRENT_STATE.get("matchup_sandbox", {}), ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/copilot":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(_CURRENT_STATE.get("copilot_plan", {}), ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()

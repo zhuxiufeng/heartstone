@@ -91,6 +91,10 @@ try:
     from core.esports_caster import EsportsCaster, CasterEventType
     from core.deck_matchup_sandbox import DeckMatchupSandbox
     from core.arena_career_vault import ArenaCareerVault
+    from core.master_copilot import MasterCoPilotEngine, CoPilotTurnPlan, CoPilotStep
+    from core.pre_cast_blunder_interceptor import PreCastBlunderInterceptor, BlunderInterceptAlert
+    from core.conversational_tts_streamer import ConversationalTtsStreamer
+    from core.mid_turn_pivot_engine import MidTurnPivotEngine
 except (ImportError, ValueError):
     from ..core.ai_engine import (
         AiEngine,
@@ -141,6 +145,10 @@ except (ImportError, ValueError):
     from ..core.esports_caster import EsportsCaster, CasterEventType
     from ..core.deck_matchup_sandbox import DeckMatchupSandbox
     from ..core.arena_career_vault import ArenaCareerVault
+    from ..core.master_copilot import MasterCoPilotEngine, CoPilotTurnPlan, CoPilotStep
+    from ..core.pre_cast_blunder_interceptor import PreCastBlunderInterceptor, BlunderInterceptAlert
+    from ..core.conversational_tts_streamer import ConversationalTtsStreamer
+    from ..core.mid_turn_pivot_engine import MidTurnPivotEngine
 from .card_tooltip import CardTooltip
 from .inplace_hud import InPlaceHudManager
 from .board_overlay import BoardTacticalOverlay
@@ -2459,6 +2467,26 @@ class OverlayWindow(QMainWindow):
                 hand_age_rep = self.hand_age_intel.update_turn(turn) if hasattr(self, "hand_age_intel") else None
                 matchup_rep = DeckMatchupSandbox.evaluate_deck(rem_deck)
 
+                # v12 Grandmaster Co-Pilot Step Plan & Conversational Voice Streaming
+                copilot_plan = MasterCoPilotEngine.build_step_plan(
+                    action_sequence=b1.action_sequence if b1 else (rec.checklist_steps or rec.suggested_plays),
+                    trading_plan=rec.trading_plan,
+                    had_lethal=is_lth,
+                    friendly_hp=friendly_hp,
+                    enemy_hp=enemy_hp,
+                    mana=mana,
+                    turn=turn,
+                )
+                MasterCoPilotEngine.get_instance().load_turn_plan(copilot_plan)
+
+                tts_streamer = ConversationalTtsStreamer.get_instance()
+                if hasattr(self, "sound_engine"):
+                    tts_streamer.set_speaker_func(lambda msg: self.sound_engine.speak(msg) if getattr(self.sound_engine, "tts_enabled", False) else None)
+                tts_streamer.speak_macro_overview(copilot_plan.macro_voice_overview)
+                active_st = copilot_plan.get_active_step()
+                if active_st:
+                    tts_streamer.speak_step_guidance(active_st.conversational_voice)
+
                 self.web_companion.update_state({
                     "mode": "PLAY",
                     "turn": turn,
@@ -2511,6 +2539,7 @@ class OverlayWindow(QMainWindow):
                     "secrets_summary": secret_rep.summary_markdown,
                     "hand_age_summary": hand_age_rep.summary_markdown if hand_age_rep else "",
                     "matchup_sandbox": matchup_rep.to_dict(),
+                    "copilot_plan": copilot_plan.to_dict(),
                 })
 
                 # Coach voice commentary trigger
