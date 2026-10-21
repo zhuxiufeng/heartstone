@@ -73,6 +73,10 @@ _CURRENT_STATE: Dict[str, Any] = {
     "leak_summary": "",
     "capsule_summary": "",
     "locale": "zh-CN",
+    "secrets_summary": "",
+    "hand_age_summary": "",
+    "matchup_sandbox": {},
+    "career_summary": "",
 }
 
 _REPLAY_DATA: Dict[str, Any] = {}
@@ -951,6 +955,21 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps({"status": "ok", "locale": new_loc, "success": success}).encode("utf-8"))
+        elif self.path == "/api/remote/command":
+            from .mobile_remote_controller import MobileRemoteController
+            cmd = str(data.get("command", "")).upper()
+            params = data.get("params", {})
+            result = MobileRemoteController.get_instance().dispatch(cmd, params)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": result.status,
+                "command": result.command,
+                "message": result.message,
+                "payload": result.payload,
+            }, ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
@@ -1057,6 +1076,43 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
                 "locale": I18nEngine.get_instance().get_locale(),
                 "available_locales": I18nEngine.get_instance().get_available_locales(),
             }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/infographic":
+            from .arena_career_vault import ArenaCareerVault
+            card_html = ArenaCareerVault.get_instance().generate_shareable_infographic_html()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(card_html.encode("utf-8"))
+        elif self.path == "/api/career":
+            from .arena_career_vault import ArenaCareerVault
+            summary = ArenaCareerVault.get_instance().get_summary()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "total_runs": summary.total_runs,
+                "total_wins": summary.total_wins,
+                "total_losses": summary.total_losses,
+                "overall_winrate_pct": summary.overall_winrate_pct,
+                "average_wins": summary.average_wins_per_run,
+                "twelve_wins": summary.twelve_win_trophies,
+                "best_hero": summary.best_hero_class,
+                "summary_markdown": summary.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/hand/age":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"summary": _CURRENT_STATE.get("hand_age_summary", "")}, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/matchup/sandbox":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(_CURRENT_STATE.get("matchup_sandbox", {}), ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()

@@ -85,6 +85,12 @@ try:
     from core.multi_turn_lookahead import MultiTurnLookahead
     from core.game_phase_machine import GamePhaseMachine
     from core.leak_buster import LeakBuster
+    from core.secret_deathrattle_simulator import SecretDeathrattleSimulator
+    from core.hand_age_intel import HandAgeIntel
+    from core.mobile_remote_controller import MobileRemoteController, RemoteCommandType
+    from core.esports_caster import EsportsCaster, CasterEventType
+    from core.deck_matchup_sandbox import DeckMatchupSandbox
+    from core.arena_career_vault import ArenaCareerVault
 except (ImportError, ValueError):
     from ..core.ai_engine import (
         AiEngine,
@@ -129,6 +135,12 @@ except (ImportError, ValueError):
     from ..core.multi_turn_lookahead import MultiTurnLookahead
     from ..core.game_phase_machine import GamePhaseMachine
     from ..core.leak_buster import LeakBuster
+    from ..core.secret_deathrattle_simulator import SecretDeathrattleSimulator
+    from ..core.hand_age_intel import HandAgeIntel
+    from ..core.mobile_remote_controller import MobileRemoteController, RemoteCommandType
+    from ..core.esports_caster import EsportsCaster, CasterEventType
+    from ..core.deck_matchup_sandbox import DeckMatchupSandbox
+    from ..core.arena_career_vault import ArenaCareerVault
 from .card_tooltip import CardTooltip
 from .inplace_hud import InPlaceHudManager
 from .board_overlay import BoardTacticalOverlay
@@ -326,6 +338,13 @@ class OverlayWindow(QMainWindow):
         self.global_hotkey_manager.register_callback(HotkeyID.SNAPSHOT_ANALYSIS, self._on_hotkey_snapshot)
         if self.config_manager.get("global_hotkeys_enabled", True):
             self.global_hotkey_manager.start()
+
+        # v11 Legendary: Hand Age Intel & Mobile Remote Controller
+        self.hand_age_intel = HandAgeIntel()
+        self.remote_controller = MobileRemoteController.get_instance()
+        self.remote_controller.register_handler(RemoteCommandType.TOGGLE_OVERLAY, lambda p: {"visible": self._toggle_visibility_remote()})
+        self.remote_controller.register_handler(RemoteCommandType.TOGGLE_CAPSULE, lambda p: {"capsule": self._toggle_capsule_remote()})
+        self.remote_controller.register_handler(RemoteCommandType.REEVALUATE, lambda p: {"reevaluated": self._trigger_reevaluate_remote()})
 
         # Background update check
         UpdateChecker.check_for_updates(self._on_update_checked)
@@ -2428,6 +2447,18 @@ class OverlayWindow(QMainWindow):
                     is_capsule_active=getattr(self, "is_compact_mode", False),
                 )
 
+                # v11 Legendary: Secret Probing, Hand Age Intel, Deck Matchup Sandbox
+                active_sec = self.secret_tracker.get_active_secrets() if hasattr(self, "secret_tracker") else []
+                secret_rep = SecretDeathrattleSimulator.evaluate_probing_order(
+                    active_secrets=active_sec,
+                    friendly_minions=friendly_minions_list,
+                    friendly_hand=[],
+                    friendly_hp=friendly_hp,
+                )
+
+                hand_age_rep = self.hand_age_intel.update_turn(turn) if hasattr(self, "hand_age_intel") else None
+                matchup_rep = DeckMatchupSandbox.evaluate_deck(rem_deck)
+
                 self.web_companion.update_state({
                     "mode": "PLAY",
                     "turn": turn,
@@ -2477,6 +2508,9 @@ class OverlayWindow(QMainWindow):
                         "survival": phase_state.survival_weight,
                     },
                     "capsule_summary": capsule_data.status_summary_line,
+                    "secrets_summary": secret_rep.summary_markdown,
+                    "hand_age_summary": hand_age_rep.summary_markdown if hand_age_rep else "",
+                    "matchup_sandbox": matchup_rep.to_dict(),
                 })
 
                 # Coach voice commentary trigger
@@ -3870,6 +3904,21 @@ class OverlayWindow(QMainWindow):
     def _on_hotkey_snapshot(self) -> None:
         """Windows global hotkey: Ctrl+Shift+S."""
         self._on_status_updated("已捕获对局战况分析快照")
+
+    def _toggle_visibility_remote(self) -> bool:
+        """Remote command handler: toggle overlay visibility safely via Qt event loop."""
+        QTimer.singleShot(0, self._toggle_visibility)
+        return True
+
+    def _toggle_capsule_remote(self) -> bool:
+        """Remote command handler: toggle capsule/full mode safely via Qt event loop."""
+        QTimer.singleShot(0, self.toggle_compact_mode)
+        return True
+
+    def _trigger_reevaluate_remote(self) -> bool:
+        """Remote command handler: trigger AI re-evaluation safely via Qt event loop."""
+        QTimer.singleShot(0, self.trigger_reevaluate)
+        return True
 
         self.sc_board = QShortcut(QKeySequence("Alt+V"), self)
         self.sc_board.activated.connect(self.toggle_board_hud)

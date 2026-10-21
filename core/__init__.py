@@ -52,6 +52,12 @@ from .leak_buster import LeakBuster, LeakItem, LeakType, LeakAuditSummary
 from .capsule_hud import CapsuleHUD, CapsuleDisplayData
 from .global_hotkeys import GlobalHotkeyManager, HotkeyID
 from .i18n_engine import I18nEngine, t
+from .secret_deathrattle_simulator import SecretDeathrattleSimulator, SecretCascadeReport, DeathrattleCascadeResult
+from .hand_age_intel import HandAgeIntel, HandAgeIntelReport, TrackedHandCard, CardOriginType
+from .mobile_remote_controller import MobileRemoteController, RemoteCommandType, RemoteCommandResult
+from .esports_caster import EsportsCaster, VoiceAnswer, CasterCommentary, CasterEventType
+from .deck_matchup_sandbox import DeckMatchupSandbox, DeckMatchupReport, ClassMatchupStats
+from .arena_career_vault import ArenaCareerVault, ArenaRunRecord, CareerSummary
 
 __all__ = [
     "ConfigManager",
@@ -163,4 +169,24 @@ __all__ = [
     "HotkeyID",
     "I18nEngine",
     "t",
+    "SecretDeathrattleSimulator",
+    "SecretCascadeReport",
+    "DeathrattleCascadeResult",
+    "HandAgeIntel",
+    "HandAgeIntelReport",
+    "TrackedHandCard",
+    "CardOriginType",
+    "MobileRemoteController",
+    "RemoteCommandType",
+    "RemoteCommandResult",
+    "EsportsCaster",
+    "VoiceAnswer",
+    "CasterCommentary",
+    "CasterEventType",
+    "DeckMatchupSandbox",
+    "DeckMatchupReport",
+    "ClassMatchupStats",
+    "ArenaCareerVault",
+    "ArenaRunRecord",
+    "CareerSummary",
 ]
