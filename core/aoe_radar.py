@@ -177,3 +177,101 @@ class AoeRadar:
         threats.sort(key=lambda t: (danger_order.get(t.danger_level, 4), -t.casualty_rate))
 
         return threats
+
+
+@dataclass
+class OverextensionAssessment:
+    is_overextended: bool
+    risk_level: str                # "CRITICAL_FUSE", "WARNING", "SAFE"
+    fuse_alert_text: str
+    signature_threat_aoe: str
+    lethal_wipe_pct: float
+    tactical_directive: str
+
+
+class AOEOverextensionGuard:
+    """Minimax guard against catastrophic overextension into opponent class AOE wipes."""
+
+    @classmethod
+    def check_overextension(
+        cls,
+        friendly_minions: List[Dict[str, Any]],
+        opponent_class: str,
+        next_turn_mana: int,
+        enemy_hp: int,
+    ) -> OverextensionAssessment:
+        if not friendly_minions:
+            return OverextensionAssessment(
+                is_overextended=False,
+                risk_level="SAFE",
+                fuse_alert_text="",
+                signature_threat_aoe="",
+                lethal_wipe_pct=0.0,
+                tactical_directive="当前场面无随从，无过度铺场风险",
+            )
+
+        f_atk = sum(m.get("attack", m.get("atk", 0)) for m in friendly_minions)
+        total_friendly = len(friendly_minions)
+
+        # 1. Check if friendly board already has sufficient pressure (>= 35% of enemy HP or >= 10 attack with >= 3 minions)
+        pressure_established = (f_atk >= max(6, int(enemy_hp * 0.35))) and (total_friendly >= 3)
+
+        # 2. Find signature AOE for opponent class accessible next turn
+        norm_class = opponent_class.lower()
+        threat_spells = [
+            s for s in ARENA_AOE_SPELLS
+            if s.hero_class.lower() == norm_class and s.mana_cost <= next_turn_mana
+        ]
+        threat_spells.sort(key=lambda s: s.damage if not s.is_hard_destroy else 999, reverse=True)
+
+        if not threat_spells:
+            return OverextensionAssessment(
+                is_overextended=False,
+                risk_level="SAFE",
+                fuse_alert_text="",
+                signature_threat_aoe="",
+                lethal_wipe_pct=0.0,
+                tactical_directive="敌方下回合无已知强力清场，安全展开场面",
+            )
+
+        worst_spell = threat_spells[0]
+        # Calculate casualties against worst spell
+        wiped_count = sum(
+            1 for m in friendly_minions
+            if worst_spell.is_hard_destroy or worst_spell.damage >= m.get("health", m.get("hp", 0))
+        )
+        wipe_pct = (wiped_count / total_friendly) * 100.0 if total_friendly > 0 else 0.0
+
+        if pressure_established and wipe_pct >= 60.0:
+            fuse_text = (
+                f"🚨【过度铺场熔断警报】我方场攻达 {f_atk} 点已足够终结（对手剩余 {enemy_hp} 血）！"
+                f"敌方下回合拥有 {next_turn_mana} 费，【{worst_spell.name}】可一举歼灭我方 {wiped_count}/{total_friendly} 个随从！"
+            )
+            directive = "严禁继续铺低血随从！改打高血大怪/亡语站场，或转为解场摇技能蓄力！"
+            return OverextensionAssessment(
+                is_overextended=True,
+                risk_level="CRITICAL_FUSE",
+                fuse_alert_text=fuse_text,
+                signature_threat_aoe=f"{worst_spell.name} ({worst_spell.mana_cost}费 {worst_spell.damage}伤)",
+                lethal_wipe_pct=wipe_pct,
+                tactical_directive=directive,
+            )
+
+        if wipe_pct >= 60.0 and total_friendly >= 3:
+            return OverextensionAssessment(
+                is_overextended=False,
+                risk_level="WARNING",
+                fuse_alert_text=f"⚠️ 敌方下回合可施放【{worst_spell.name}】，建议提高随从血量防清场",
+                signature_threat_aoe=worst_spell.name,
+                lethal_wipe_pct=wipe_pct,
+                tactical_directive="注意随从交换与血量分配，防范群解",
+            )
+
+        return OverextensionAssessment(
+            is_overextended=False,
+            risk_level="SAFE",
+            fuse_alert_text="",
+            signature_threat_aoe=worst_spell.name if threat_spells else "",
+            lethal_wipe_pct=wipe_pct,
+            tactical_directive="场面血量安全，正常展开节奏",
+        )

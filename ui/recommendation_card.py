@@ -123,6 +123,9 @@ class RecommendationCard(QFrame):
         tag_prefix = f"<b>【{verdict_tag}】</b> " if verdict_tag else ""
         summary_parts.append(f"{lead_prefix}{tag_prefix}{eval_data.summary}")
 
+        if getattr(eval_data, "archetype_fit_tag", ""):
+            summary_parts.append(f"🧭 <b>原型罗盘</b>: <span style='color: #38bdf8;'>{eval_data.archetype_fit_tag}</span>")
+
         if eval_data.pros:
             summary_parts.append(f"🟢 优: {', '.join(eval_data.pros)}")
         if eval_data.cons:

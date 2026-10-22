@@ -837,6 +837,16 @@ class OverlayWindow(QMainWindow):
         ps_top_row = QHBoxLayout()
         self.play_turn_lbl = QLabel("回合 1 · 法力水晶 1/1", self)
         self.play_turn_lbl.setStyleSheet("color: #38bdf8; font-size: 12.5px; font-weight: 800; letter-spacing: 0.5px;")
+        self.live_winrate_lbl = QLabel("📈 胜率 50.0%", self)
+        self.live_winrate_lbl.setStyleSheet("""
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        """)
         self.play_opp_lbl = QLabel("对手: 等待检测", self)
         self.play_opp_lbl.setStyleSheet("""
             color: #cbd5e1;
@@ -849,6 +859,7 @@ class OverlayWindow(QMainWindow):
         """)
         ps_top_row.addWidget(self.play_turn_lbl)
         ps_top_row.addStretch()
+        ps_top_row.addWidget(self.live_winrate_lbl)
         ps_top_row.addWidget(self.play_opp_lbl)
         ps_layout.addLayout(ps_top_row)
 
@@ -886,6 +897,12 @@ class OverlayWindow(QMainWindow):
         pf_layout.addStretch()
         pf_layout.addWidget(self.clock_lbl)
         ps_layout.addWidget(self.posture_frame)
+
+        # Real-time Winrate Momentum Sparkline EKG Curve
+        self.winrate_sparkline.setParent(self.play_status_banner)
+        self.winrate_sparkline.setFixedHeight(34)
+        ps_layout.addWidget(self.winrate_sparkline)
+        self.winrate_sparkline.show()
 
         play_layout.addWidget(self.play_status_banner)
 
@@ -1208,6 +1225,34 @@ class OverlayWindow(QMainWindow):
         lf_layout.addWidget(self.lethal_steps_lbl)
         play_content_layout.addWidget(self.lethal_frame)
         self.lethal_frame.hide()
+
+        # First-Principles Feature: Minimax AOE Overextension Guard & Breakpoint Fuse
+        self.overextension_frame = QFrame(self)
+        self.overextension_frame.setObjectName("overextensionFrame")
+        self.overextension_frame.setStyleSheet("""
+            QFrame#overextensionFrame {
+                background: rgba(239, 68, 68, 0.16);
+                border: 1.5px solid #ef4444;
+                border-radius: 8px;
+            }
+            QLabel { background: transparent; border: none; padding: 0px; }
+        """)
+        of_layout = QVBoxLayout(self.overextension_frame)
+        of_layout.setContentsMargins(10, 8, 10, 8)
+        of_layout.setSpacing(3)
+        self.overextension_title_lbl = QLabel("🚨 极小化极大防过度铺场熔断警报", self)
+        self.overextension_title_lbl.setStyleSheet("color: #ef4444; font-size: 12px; font-weight: 800; letter-spacing: 0.5px;")
+        self.overextension_detail_lbl = QLabel("", self)
+        self.overextension_detail_lbl.setWordWrap(True)
+        self.overextension_detail_lbl.setStyleSheet("color: #fca5a5; font-size: 11px; font-weight: bold;")
+        self.overextension_directive_lbl = QLabel("", self)
+        self.overextension_directive_lbl.setWordWrap(True)
+        self.overextension_directive_lbl.setStyleSheet("color: #fecdd3; font-size: 10.5px;")
+        of_layout.addWidget(self.overextension_title_lbl)
+        of_layout.addWidget(self.overextension_detail_lbl)
+        of_layout.addWidget(self.overextension_directive_lbl)
+        play_content_layout.addWidget(self.overextension_frame)
+        self.overextension_frame.hide()
 
         # Mulligan Guidance Frame - Grandmaster Mulligan Cockpit
         self.mulligan_frame = QFrame(self)
@@ -1634,6 +1679,12 @@ class OverlayWindow(QMainWindow):
         self.topdeck_lbl.setStyleSheet("color: #fbcfe8; font-size: 10px; margin-top: 2px;")
         df_layout.addWidget(self.topdeck_lbl)
         self.topdeck_lbl.hide()
+
+        self.fatigue_clock_lbl = QLabel("", self)
+        self.fatigue_clock_lbl.setWordWrap(True)
+        self.fatigue_clock_lbl.setStyleSheet("color: #38bdf8; font-size: 10px; margin-top: 2px;")
+        df_layout.addWidget(self.fatigue_clock_lbl)
+        self.fatigue_clock_lbl.hide()
         intel_layout.addWidget(self.deck_frame)
 
         # Discover Tri-Pick Frame (First-Principles Feature 4: In-Match Discover Tri-Pick Lens)
@@ -2684,6 +2735,91 @@ class OverlayWindow(QMainWindow):
             else:
                 self.lethal_frame.hide()
 
+            # 3.2.1 Real-Time Live Win Rate Telemetry & Momentum Curve (Feature: 实时胜率大盘)
+            wr_pct = getattr(rec, "live_winrate_pct", 50.0)
+            wr_delta = getattr(rec, "live_winrate_delta", 0.0)
+            wr_tier = getattr(rec, "live_winrate_tier", "")
+            wr_driver = getattr(rec, "live_winrate_driver", "")
+
+            delta_symbol = f" ▲+{wr_delta:.1f}%" if wr_delta > 0 else (f" ▼{wr_delta:.1f}%" if wr_delta < 0 else "")
+            if hasattr(self, "live_winrate_lbl"):
+                if wr_pct >= 62.0:
+                    self.live_winrate_lbl.setStyleSheet("""
+                        background: rgba(16, 185, 129, 0.18);
+                        color: #34d399;
+                        font-size: 11px;
+                        font-weight: 800;
+                        padding: 2px 7px;
+                        border-radius: 6px;
+                        border: 1px solid rgba(16, 185, 129, 0.45);
+                    """)
+                elif wr_pct >= 48.0:
+                    self.live_winrate_lbl.setStyleSheet("""
+                        background: rgba(56, 189, 248, 0.16);
+                        color: #38bdf8;
+                        font-size: 11px;
+                        font-weight: 800;
+                        padding: 2px 7px;
+                        border-radius: 6px;
+                        border: 1px solid rgba(56, 189, 248, 0.4);
+                    """)
+                elif wr_pct >= 35.0:
+                    self.live_winrate_lbl.setStyleSheet("""
+                        background: rgba(245, 158, 11, 0.16);
+                        color: #fbbf24;
+                        font-size: 11px;
+                        font-weight: 800;
+                        padding: 2px 7px;
+                        border-radius: 6px;
+                        border: 1px solid rgba(245, 158, 11, 0.4);
+                    """)
+                else:
+                    self.live_winrate_lbl.setStyleSheet("""
+                        background: rgba(239, 68, 68, 0.18);
+                        color: #f87171;
+                        font-size: 11px;
+                        font-weight: 800;
+                        padding: 2px 7px;
+                        border-radius: 6px;
+                        border: 1px solid rgba(239, 68, 68, 0.45);
+                    """)
+                tier_tag = f" · {wr_tier}" if wr_tier else ""
+                self.live_winrate_lbl.setText(f"📈 胜率 {wr_pct:.1f}%{delta_symbol}{tier_tag}")
+                self.live_winrate_lbl.setToolTip(f"即时胜率: {wr_pct:.1f}%\n核心驱动: {wr_driver}\n方差策略: {getattr(rec, 'variance_policy', '标准')}")
+                self.live_winrate_lbl.show()
+
+            if hasattr(self, "winrate_sparkline"):
+                self.winrate_sparkline.add_turn_record(turn, wr_pct, wr_tier)
+                self.winrate_sparkline.show()
+
+            # 3.2.2 Minimax AOE Overextension Guard & Breakpoint Fuse (极小化极大防过度铺场熔断器)
+            oe_res = getattr(rec, "overextension_assessment", None)
+            if hasattr(self, "overextension_frame"):
+                if oe_res and oe_res.is_overextended:
+                    self.overextension_frame.show()
+                    self.overextension_detail_lbl.setText(oe_res.fuse_alert_text)
+                    self.overextension_directive_lbl.setText(f"🛡️ 避险指令: {oe_res.tactical_directive}")
+                    if oe_res.risk_level == "CRITICAL_FUSE":
+                        self.overextension_frame.setStyleSheet("""
+                            QFrame#overextensionFrame {
+                                background: rgba(220, 38, 38, 0.22);
+                                border: 1.8px solid #dc2626;
+                                border-radius: 8px;
+                            }
+                            QLabel { background: transparent; border: none; padding: 0px; }
+                        """)
+                    else:
+                        self.overextension_frame.setStyleSheet("""
+                            QFrame#overextensionFrame {
+                                background: rgba(245, 158, 11, 0.16);
+                                border: 1.5px solid #f59e0b;
+                                border-radius: 8px;
+                            }
+                            QLabel { background: transparent; border: none; padding: 0px; }
+                        """)
+                else:
+                    self.overextension_frame.hide()
+
             # 3.3. Update Live Blunder Shield Interceptor Banner
             if rec.blunder_alerts:
                 self.blunder_frame.show()
@@ -3215,9 +3351,28 @@ class OverlayWindow(QMainWindow):
             else:
                 self.topdeck_lbl.hide()
 
-            # 9. Update Hand Tracker views
+            # 8.6 Fatigue & Endgame Horizon (疲劳与不可逆终局推演)
+            fatigue_rep = getattr(rec, "fatigue_endgame_report", None)
+            if fatigue_rep and hasattr(self, "fatigue_clock_lbl"):
+                self.fatigue_clock_lbl.setText(
+                    f"⏳ <b>终局推演</b>: <span style='color: #38bdf8;'>{fatigue_rep.summary_headline}</span><br>"
+                    f"⚖️ 我方时钟: {fatigue_rep.my_clock_turns}轮 | 敌方时钟: {fatigue_rep.opp_clock_turns}轮 · {fatigue_rep.endgame_action_plan}"
+                )
+                self.fatigue_clock_lbl.show()
+
+            # 9. Update Hand Tracker views & Bayesian Hand Role Fingerprinting
             self.hand_tracker.set_turn(turn)
-            if self.hand_tracker.cards:
+            bayesian_rep = getattr(rec, "bayesian_hand_report", None)
+            if bayesian_rep and bayesian_rep.cards and hasattr(self, "hand_status_lbl"):
+                capsules = []
+                for c in bayesian_rep.cards[:4]:
+                    capsules.append(
+                        f"• <b>槽位 #{c.slot}</b> (持有{c.hold_turns}轮): <span style='color: #f59e0b;'>{c.bayesian_role_badge}</span><br>"
+                        f"  👉 应对: {c.counter_strategy}"
+                    )
+                self.hand_status_lbl.setText("<br>".join(capsules))
+                self.hand_count_badge.setText(f"{len(bayesian_rep.cards)}张")
+            elif self.hand_tracker.cards:
                 self.hand_status_lbl.setText(format_tactical_text(self.hand_tracker.get_display_text()))
                 self.hand_count_badge.setText(f"{len(self.hand_tracker.cards)}张")
             else:
@@ -3524,6 +3679,12 @@ class OverlayWindow(QMainWindow):
         self.hand_status_lbl.setText("实时手牌追踪中")
         self.secret_frame.hide()
         self.lethal_frame.hide()
+        if hasattr(self, "overextension_frame"):
+            self.overextension_frame.hide()
+        if hasattr(self, "winrate_sparkline"):
+            self.winrate_sparkline.clear()
+        if hasattr(self, "live_winrate_lbl"):
+            self.live_winrate_lbl.setText("📈 胜率 50.0%")
         self.coin_frame.hide()
         self.mulligan_frame.hide()
         if hasattr(self, "blunder_frame"):
@@ -3578,6 +3739,8 @@ class OverlayWindow(QMainWindow):
         self.mulligan_frame.hide()
         self.coin_frame.hide()
         self.lethal_frame.hide()
+        if hasattr(self, "overextension_frame"):
+            self.overextension_frame.hide()
         self.secret_frame.hide()
         if hasattr(self, "blunder_frame"):
             self.blunder_frame.hide()
@@ -3742,6 +3905,8 @@ class OverlayWindow(QMainWindow):
             self.coin_frame.hide()
         if hasattr(self, "lethal_frame"):
             self.lethal_frame.hide()
+        if hasattr(self, "overextension_frame"):
+            self.overextension_frame.hide()
         if hasattr(self, "secret_frame"):
             self.secret_frame.hide()
         if hasattr(self, "blunder_frame"):

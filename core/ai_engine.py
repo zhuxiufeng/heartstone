@@ -67,6 +67,10 @@ from .rng_probability_engine import RngProbabilityEngine, RngProbabilityReport
 from .personal_weakness_profiler import PersonalWeaknessProfiler
 from .matchup_micro_meta import MatchupMicroMetaEngine, MatchupDeltaResult
 from .board_resilience_evaluator import BoardResilienceEvaluator, BoardResilienceReport
+from .winrate_estimator import WinRateEstimator, WinRateReport
+from .aoe_radar import AoeRadar, AOEOverextensionGuard, OverextensionAssessment
+from .fatigue_endgame_horizon import FatigueEndgameHorizon, FatigueEndgameReport, EndgameVerdict
+from .hand_age_intel import HandAgeIntel, HandAgeIntelReport
 
 logger = logging.getLogger("AiEngine")
 
@@ -95,6 +99,8 @@ class CardEvaluation:
     summary: str
     pros: List[str] = field(default_factory=list)
     cons: List[str] = field(default_factory=list)
+    marginal_delta: float = 0.0
+    archetype_fit_tag: str = ""
 
 
 @dataclass
@@ -170,6 +176,15 @@ class PlayRecommendation:
     discover_tri_pick: Optional[DiscoverTriPickResult] = None
     secret_probing_plan: Optional[SecretProbingPlan] = None
     secret_probing_directive: str = ""
+    # v21 First-Principles Omniscience Attributes & Live Win Rate
+    live_winrate_report: Optional[WinRateReport] = None
+    live_winrate_pct: float = 50.0
+    live_winrate_delta: float = 0.0
+    live_winrate_tier: str = ""
+    live_winrate_driver: str = ""
+    overextension_assessment: Optional[OverextensionAssessment] = None
+    fatigue_endgame_report: Optional[FatigueEndgameReport] = None
+    bayesian_hand_report: Optional[HandAgeIntelReport] = None
 
 
 class EvaluationCache:
@@ -244,6 +259,8 @@ class AiEngine:
         self.sequence_optimizer = SequenceOptimizer()
         self.secret_tracker = SecretTracker(self.card_db)
         self.match_learner = MatchHistoryLearner()
+        self.hand_age_intel = HandAgeIntel()
+        self._last_winrate_pct = 50.0
         self._gemini_model = None
 
     @property
@@ -614,6 +631,31 @@ class AiEngine:
             if meta_bias.score_delta != 0:
                 score += meta_bias.score_delta
 
+            # 12. Dynamic Archetype Convergence & Marginal Synergy Delta (选牌动力学原型收敛罗盘)
+            marginal_delta = 0.0
+            archetype_fit_tag = ""
+            cost_count = sum(1 for c in deck if c.cost == card.cost)
+            arch_name = archetype_prof.archetype.name
+
+            if cost_count >= 5 and pick_num >= 10:
+                marginal_delta -= 14.0
+                archetype_fit_tag = f"⚠️【{card.cost}费曲线严重拥堵 · 边际 -14分】"
+            elif card.cost == 2 and cost_count <= 2 and pick_num >= 12:
+                marginal_delta += 18.0
+                archetype_fit_tag = "🎯【2费曲线急缺补强 · 边际 +18分】"
+            elif arch_name == "AGGRO" and (getattr(card, "attack", 0) or 0) >= card.cost:
+                marginal_delta += 15.0
+                archetype_fit_tag = "🔥【12胜快攻核心收敛 · 边际 +15分】"
+            elif arch_name == "CONTROL" and (getattr(card, "card_type", "") == "SPELL" or (getattr(card, "health", 0) or 0) >= 5):
+                marginal_delta += 14.0
+                archetype_fit_tag = "🛡️【12胜控制核心收敛 · 边际 +14分】"
+            elif syn_eval.bonus_score >= 8:
+                marginal_delta += float(syn_eval.bonus_score)
+                archetype_fit_tag = f"💎【强力套牌协同收敛 · 边际 +{syn_eval.bonus_score:.0f}分】"
+
+            if marginal_delta != 0:
+                score += int(marginal_delta)
+
             score = max(35, min(98, score))
 
             if score > max_score:
@@ -621,6 +663,8 @@ class AiEngine:
                 best_idx = idx
 
             card_pros = ["身材扎实" if card.card_type == "MINION" else "法术实用"]
+            if archetype_fit_tag:
+                card_pros.append(archetype_fit_tag)
             if curve_fill_note:
                 card_pros.append(f"📈 曲线联动: {curve_fill_note}")
             if hist_delta != 0:
@@ -661,6 +705,8 @@ class AiEngine:
                     summary=" | ".join(summary_parts),
                     pros=card_pros,
                     cons=["后期略显乏力" if card.cost <= 2 else "需要配合"],
+                    marginal_delta=marginal_delta,
+                    archetype_fit_tag=archetype_fit_tag,
                 )
             )
 
@@ -962,13 +1008,55 @@ class AiEngine:
                 is_facing_lethal=is_lethal_peril,
             )
 
-        # 7.3. Variance & Risk-Tolerance Policy
-        best_winrate = action_tree_res.best_branch.projected_winrate if action_tree_res.best_branch else 50.0
+        # Real-Time Live Win Rate Calculation (实时对局即时胜率)
+        live_winrate: WinRateReport = WinRateEstimator.calculate_winrate(
+            friendly_hp=friendly_hp,
+            enemy_hp=enemy_hp,
+            friendly_board_atk=f_atk,
+            enemy_board_atk=e_atk,
+            friendly_minion_count=len(f_minions),
+            enemy_minion_count=len(e_minions),
+            friendly_hand_count=len(hand_cards),
+            enemy_hand_count=enemy_hand_count,
+            current_turn=turn_number,
+            has_immediate_lethal=False,
+            has_two_turn_lethal=is_two_turn_lockout,
+        )
+        winrate_delta = round(live_winrate.winrate_pct - getattr(self, "_last_winrate_pct", 50.0), 1)
+        self._last_winrate_pct = live_winrate.winrate_pct
+
+        # 7.3. Variance & Risk-Tolerance Policy (Driven by Live Win Rate)
         planned_acts = action_tree_res.best_branch.action_sequence if action_tree_res.best_branch else []
         variance_rep: VariancePolicyReport = VarianceEvaluator.evaluate_risk_policy(
-            winrate_pct=best_winrate,
+            winrate_pct=live_winrate.winrate_pct,
             planned_actions=planned_acts,
         )
+
+        # 7.4 Overextension Guard (极小化极大防过度铺场熔断器)
+        next_m = min(10, current_mana + 1)
+        overextension_res: OverextensionAssessment = AOEOverextensionGuard.check_overextension(
+            friendly_minions=f_minions,
+            opponent_class=opponent_class,
+            next_turn_mana=next_m,
+            enemy_hp=enemy_hp,
+        )
+
+        # 7.4.1 Fatigue & Endgame Horizon (疲劳与不可逆终局推演)
+        fatigue_rep: FatigueEndgameReport = FatigueEndgameHorizon.calculate_endgame_horizon(
+            my_deck_count=max(1, 30 - turn_number - 3),
+            my_hand=[c.name for c in hand_cards],
+            my_hp=friendly_hp,
+            my_armor=0,
+            opp_deck_count=max(1, 30 - turn_number - 3),
+            opp_hand_count=enemy_hand_count,
+            opp_hp=enemy_hp,
+            opp_armor=0,
+            opp_class=opponent_class,
+            current_turn=turn_number,
+        )
+
+        # 7.4.2 Bayesian Hand Role Fingerprint Report
+        bayesian_hand_rep: HandAgeIntelReport = self.hand_age_intel.update_turn(turn_number)
 
         # 7.5. Macro Tactical Compass (Greed vs Tempo Balance)
         from .tactical_compass import TacticalCompass, TacticalCompassReport
@@ -1155,6 +1243,14 @@ class AiEngine:
                 rec.discover_tri_pick = discover_tri_pick_res
                 rec.secret_probing_plan = secret_probing_plan
                 rec.secret_probing_directive = getattr(secret_probing_plan, "safest_attack_directive", "")
+                rec.live_winrate_report = live_winrate
+                rec.live_winrate_pct = live_winrate.winrate_pct
+                rec.live_winrate_delta = winrate_delta
+                rec.live_winrate_tier = live_winrate.win_tier
+                rec.live_winrate_driver = live_winrate.key_advantage_factor
+                rec.overextension_assessment = overextension_res
+                rec.fatigue_endgame_report = fatigue_rep
+                rec.bayesian_hand_report = bayesian_hand_rep
                 return rec
             except Exception as e:
                 logger.warning(f"LLM Play call failed: {e}. Using fallback.")
@@ -1256,6 +1352,14 @@ class AiEngine:
             discover_tri_pick=discover_tri_pick_res,
             secret_probing_plan=secret_probing_plan,
             secret_probing_directive=getattr(secret_probing_plan, "safest_attack_directive", ""),
+            live_winrate_report=live_winrate,
+            live_winrate_pct=live_winrate.winrate_pct,
+            live_winrate_delta=winrate_delta,
+            live_winrate_tier=live_winrate.win_tier,
+            live_winrate_driver=live_winrate.key_advantage_factor,
+            overextension_assessment=overextension_res,
+            fatigue_endgame_report=fatigue_rep,
+            bayesian_hand_report=bayesian_hand_rep,
         )
 
     def evaluate_play_turn_stream(

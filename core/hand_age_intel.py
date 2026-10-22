@@ -31,6 +31,9 @@ class TrackedHandCard:
     predicted_category: str              # "AOE_SWEEPER", "BURST_FINISHER", "SITUATIONAL_REMOVAL", "REGULAR"
     prediction_label: str
     known_name: str = ""
+    bayesian_role_badge: str = ""
+    bayesian_prob_pct: int = 50
+    counter_strategy: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -42,6 +45,9 @@ class TrackedHandCard:
             "predicted_category": self.predicted_category,
             "prediction_label": self.prediction_label,
             "known_name": self.known_name,
+            "bayesian_role_badge": self.bayesian_role_badge,
+            "bayesian_prob_pct": self.bayesian_prob_pct,
+            "counter_strategy": self.counter_strategy,
         }
 
 
@@ -144,22 +150,45 @@ class HandAgeIntel:
                 if card.hold_turns >= 4:
                     card.is_dormant_threat = True
                     card.predicted_category = "AOE_SWEEPER"
-                    card.prediction_label = f"起手保留已蓄力{card.hold_turns}回合 (极高危AOE/斩杀)"
+                    card.bayesian_prob_pct = min(96, 75 + card.hold_turns * 4)
+                    card.bayesian_role_badge = f"🛡️ {card.bayesian_prob_pct}% 概率为硬解/全场AOE"
+                    card.counter_strategy = "严禁单核裸下高费大哥，保留杂毛垫刀防单解"
+                    card.prediction_label = f"起手保留已蓄力{card.hold_turns}回合 ({card.bayesian_role_badge})"
                     dormant_threats.append(card)
                 elif card.hold_turns >= 2:
+                    card.bayesian_prob_pct = 75
+                    card.bayesian_role_badge = "⚔️ 75% 顺发战力或控场"
+                    card.counter_strategy = "警惕准时拍出"
                     card.prediction_label = f"起手保留({card.hold_turns}回合)"
+                else:
+                    card.bayesian_prob_pct = 60
+                    card.bayesian_role_badge = "💧 起手牌"
+                    card.counter_strategy = "常规防范"
+                    card.prediction_label = "起手牌"
             elif card.origin == CardOriginType.MULLIGAN_REDRAW:
                 if card.hold_turns >= 5:
                     card.is_dormant_threat = True
                     card.predicted_category = "SITUATIONAL_REMOVAL"
-                    card.prediction_label = f"调度抽到已沉睡{card.hold_turns}回合 (特定针对解牌)"
+                    card.bayesian_prob_pct = min(94, 70 + card.hold_turns * 4)
+                    card.bayesian_role_badge = f"🛡️ {card.bayesian_prob_pct}% 概率为特定针对解牌/高费炸弹"
+                    card.counter_strategy = "注意防范冷门大解"
+                    card.prediction_label = f"调度抽到已沉睡{card.hold_turns}回合 ({card.bayesian_role_badge})"
                     dormant_threats.append(card)
                 else:
+                    card.bayesian_prob_pct = 65
+                    card.bayesian_role_badge = "💧 调度常规牌"
+                    card.counter_strategy = "常规曲线"
                     card.prediction_label = f"调度卡({card.hold_turns}回合)"
             elif card.origin == CardOriginType.CREATED:
-                card.prediction_label = f"发现/衍生牌 (持有{card.hold_turns}回合)"
+                card.bayesian_prob_pct = 88
+                card.bayesian_role_badge = "⚡ 88% 衍生高质战力/伤害"
+                card.counter_strategy = "防备意外爆发或机制互动"
+                card.prediction_label = f"发现/衍生牌 ({card.bayesian_role_badge})"
             else:
-                card.prediction_label = f"T{card.turn_drawn}摸牌 (持有{card.hold_turns}回合)"
+                card.bayesian_prob_pct = 75
+                card.bayesian_role_badge = "💧 75% 顺曲线生物或小解"
+                card.counter_strategy = "大概率当回合打出"
+                card.prediction_label = f"T{card.turn_drawn}摸牌 ({card.bayesian_role_badge})"
 
         sorted_cards = [self.cards[s] for s in sorted(self.cards.keys())]
 

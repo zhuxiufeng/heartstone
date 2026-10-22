@@ -34,6 +34,22 @@ class FatigueEndgameReport:
     strategic_directive: str
     summary_markdown: str
 
+    @property
+    def my_clock_turns(self) -> int:
+        return self.my_resource.turns_to_fatigue
+
+    @property
+    def opp_clock_turns(self) -> int:
+        return self.opp_resource.turns_to_fatigue
+
+    @property
+    def summary_headline(self) -> str:
+        return self.verdict_label
+
+    @property
+    def endgame_action_plan(self) -> str:
+        return self.strategic_directive
+
 
 class FatigueEndgameHorizon:
     """
