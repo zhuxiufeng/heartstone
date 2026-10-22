@@ -291,39 +291,39 @@ class OverlayWindow(QMainWindow):
     THEMES = {
         "WARM_OBSIDIAN_GOLD": {
             "name": "典雅黑金酒馆 (默认)",
-            "frame": "background-color: rgba(20, 20, 24, 245); border: 1.5px solid rgba(245, 158, 11, 0.45); border-radius: 12px;",
+            "frame": "background-color: rgba(11, 15, 25, 0.96); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px;",
         },
         "MINIMAL_GRAPHITE": {
             "name": "极简石墨暗灰",
-            "frame": "background-color: rgba(24, 24, 27, 245); border: 1.5px solid rgba(168, 162, 158, 0.4); border-radius: 12px;",
+            "frame": "background-color: rgba(15, 17, 24, 0.96); border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 12px;",
         },
         "ROYAL_ARCANE": {
             "name": "达拉然奥术秘紫",
-            "frame": "background-color: rgba(26, 16, 38, 245); border: 1.5px solid rgba(168, 85, 247, 0.55); border-radius: 12px;",
+            "frame": "background-color: rgba(18, 14, 30, 0.96); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 12px;",
         },
         "NEON_EMERALD": {
             "name": "恶魔邪能翡翠",
-            "frame": "background-color: rgba(12, 28, 22, 245); border: 1.5px solid rgba(16, 185, 129, 0.55); border-radius: 12px;",
+            "frame": "background-color: rgba(9, 21, 17, 0.96); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px;",
         },
         "CYBER_NEON": {
             "name": "赛博霓虹",
-            "frame": "background-color: rgba(15, 23, 42, 235); border: 1.8px solid rgba(56, 189, 248, 0.4); border-radius: 12px;",
+            "frame": "background-color: rgba(11, 15, 25, 0.96); border: 1px solid rgba(56, 189, 248, 0.38); border-radius: 12px;",
         },
         "TAVERN_HEARTH": {
             "name": "酒馆暖木",
-            "frame": "background-color: rgba(38, 24, 14, 240); border: 1.8px solid rgba(245, 158, 11, 0.45); border-radius: 12px;",
+            "frame": "background-color: rgba(24, 18, 15, 0.96); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px;",
         },
         "FROZEN_THRONE": {
             "name": "冰封王座",
-            "frame": "background-color: rgba(12, 28, 48, 240); border: 1.8px solid rgba(103, 232, 249, 0.4); border-radius: 12px;",
+            "frame": "background-color: rgba(10, 20, 36, 0.96); border: 1px solid rgba(103, 232, 249, 0.35); border-radius: 12px;",
         },
         "VOID_SHADOW": {
             "name": "暗影虚空",
-            "frame": "background-color: rgba(26, 16, 37, 245); border: 1.8px solid rgba(192, 132, 252, 0.4); border-radius: 12px;",
+            "frame": "background-color: rgba(20, 13, 30, 0.96); border: 1px solid rgba(192, 132, 252, 0.35); border-radius: 12px;",
         },
         "MINIMAL_MONOCHROME": {
             "name": "极简黑白",
-            "frame": "background-color: rgba(18, 18, 20, 250); border: 1.8px solid rgba(226, 232, 240, 0.3); border-radius: 12px;",
+            "frame": "background-color: rgba(14, 15, 18, 0.97); border: 1px solid rgba(226, 232, 240, 0.25); border-radius: 12px;",
         },
     }
 
@@ -504,13 +504,13 @@ class OverlayWindow(QMainWindow):
         self.central_card.setObjectName("mainFrame")
         self.central_card.setStyleSheet("""
             QFrame#mainFrame {
-                background-color: rgba(20, 20, 24, 245);
-                border: 1.5px solid rgba(245, 158, 11, 0.45);
+                background-color: rgba(11, 15, 25, 0.96);
+                border: 1px solid rgba(255, 255, 255, 0.09);
                 border-radius: 12px;
-                font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
             }
             QLabel {
-                font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
             }
         """)
         self.setCentralWidget(self.central_card)
@@ -521,6 +521,7 @@ class OverlayWindow(QMainWindow):
         self.dynamic_island = DynamicIslandCapsule(self)
         self.dynamic_island.setVisible(False)
         self.winrate_sparkline = WinrateSparklineWidget(self)
+        self.winrate_sparkline.setVisible(False)
 
         # v18 Display & Interactive Hologram Engine
         self.theme_engine = PrismaticThemeEngine()
@@ -544,48 +545,50 @@ class OverlayWindow(QMainWindow):
         self.header_widget.setStyleSheet("background: transparent;")
         header = QHBoxLayout(self.header_widget)
         header.setContentsMargins(0, 0, 0, 0)
-        header.setSpacing(3)
+        header.setSpacing(4)
 
-        title_lbl = QLabel("⚔️ 炉石竞技场 AI", self)
-        title_lbl.setStyleSheet("color: #fbbf24; font-size: 12px; font-weight: bold;")
+        title_lbl = QLabel("HEARTHSTONE AI", self)
+        title_lbl.setStyleSheet("color: #f8fafc; font-size: 11px; font-weight: 800; letter-spacing: 1.2px;")
         header.addWidget(title_lbl)
 
         self.mode_badge = QPushButton("选牌模式", self)
         self.mode_badge.setCursor(Qt.PointingHandCursor)
         self.mode_badge.setStyleSheet("""
             QPushButton {
-                background: rgba(180, 83, 9, 0.35);
-                color: #fde68a;
-                font-size: 11px;
-                font-weight: bold;
-                padding: 2px 7px;
-                border-radius: 4px;
-                border: 1px solid rgba(245, 158, 11, 0.55);
+                background: rgba(14, 165, 233, 0.12);
+                color: #38bdf8;
+                font-size: 10px;
+                font-weight: 700;
+                padding: 2px 8px;
+                border-radius: 10px;
+                border: 1px solid rgba(56, 189, 248, 0.3);
             }
             QPushButton:hover {
-                background: rgba(217, 119, 6, 0.55);
+                background: rgba(14, 165, 233, 0.22);
                 color: #ffffff;
-                border-color: #fbbf24;
+                border-color: #38bdf8;
             }
         """)
         self.mode_badge.clicked.connect(self.toggle_mode)
         header.addWidget(self.mode_badge)
 
         self.hero_badge = QLabel("我方: 待选", self)
-        self.hero_badge.setStyleSheet("color: #a8a29e; font-size: 11px;")
+        self.hero_badge.setStyleSheet("color: #64748b; font-size: 10px; font-weight: 500;")
         header.addWidget(self.hero_badge)
 
         header.addStretch()
 
-        def _style_hdr_btn(btn: QPushButton, hover_color: str = "#fbbf24", hover_bg: str = "#44403c") -> None:
+        def _style_hdr_btn(btn: QPushButton, hover_color: str = "#38bdf8", hover_bg: str = "rgba(56, 189, 248, 0.15)") -> None:
             btn.setFixedSize(22, 22)
             btn.setStyleSheet(f"""
                 QPushButton {{
-                    background: rgba(41, 37, 36, 0.65);
-                    color: #d6d3d1;
-                    border: 1px solid rgba(87, 83, 78, 0.4);
+                    background: rgba(255, 255, 255, 0.05);
+                    color: #94a3b8;
+                    border: 1px solid rgba(255, 255, 255, 0.08);
                     border-radius: 4px;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
                     font-size: 11px;
+                    font-weight: bold;
                 }}
                 QPushButton:hover {{
                     color: {hover_color};
@@ -600,67 +603,67 @@ class OverlayWindow(QMainWindow):
         header.addWidget(self.voice_orb)
 
         # Header action buttons: Dock, Hero Picker, Theme, Wide, Rope, Board HUD, Compact, Settings, Close
-        self.dock_btn = QPushButton("📌", self)
+        self.dock_btn = QPushButton("⊕", self)
         self.dock_btn.setToolTip("吸附固定至炉石游戏窗口 (Ctrl+F5)")
-        _style_hdr_btn(self.dock_btn, "#fbbf24")
+        _style_hdr_btn(self.dock_btn, "#38bdf8")
         self.dock_btn.clicked.connect(self.dock_to_game_window)
         header.addWidget(self.dock_btn)
 
-        self.hero_btn = QPushButton("👑", self)
+        self.hero_btn = QPushButton("★", self)
         self.hero_btn.setToolTip("开局英雄选择推荐 / 梯队胜率排行 (Ctrl+H)")
-        _style_hdr_btn(self.hero_btn, "#facc15", "rgba(245, 158, 11, 0.35)")
+        _style_hdr_btn(self.hero_btn, "#facc15", "rgba(250, 204, 21, 0.15)")
         self.hero_btn.clicked.connect(self.show_hero_advisor_dialog)
         header.addWidget(self.hero_btn)
 
-        self.theme_btn = QPushButton("🎨", self)
+        self.theme_btn = QPushButton("✦", self)
         self.theme_btn.setToolTip("切换视觉主题 (Ctrl+F6)")
-        _style_hdr_btn(self.theme_btn, "#f59e0b")
+        _style_hdr_btn(self.theme_btn, "#a855f7", "rgba(168, 85, 247, 0.15)")
         self.theme_btn.clicked.connect(self.cycle_theme)
         header.addWidget(self.theme_btn)
 
-        self.streamer_btn = QPushButton("📡", self)
+        self.streamer_btn = QPushButton("◎", self)
         self.streamer_btn.setToolTip("切换主播极简隐私模式 / OBS 直播跑马灯 (Alt+S)")
         _style_hdr_btn(self.streamer_btn, "#38bdf8")
         self.streamer_btn.clicked.connect(self.toggle_streamer_mode)
         header.addWidget(self.streamer_btn)
 
-        self.compass_btn = QPushButton("🧭", self)
+        self.compass_btn = QPushButton("◈", self)
         self.compass_btn.setToolTip("切换 360° 极坐标概率罗盘与神抽斩杀刻度 (Alt+C)")
-        _style_hdr_btn(self.compass_btn, "#10b981")
+        _style_hdr_btn(self.compass_btn, "#10b981", "rgba(16, 185, 129, 0.15)")
         self.compass_btn.clicked.connect(self.toggle_radial_compass)
         header.addWidget(self.compass_btn)
 
-        self.wide_btn = QPushButton("🗖", self)
+        self.wide_btn = QPushButton("⊞", self)
         self.wide_btn.setToolTip("切换战术全景大屏 / 常规窗口 (Alt+W)")
-        _style_hdr_btn(self.wide_btn, "#fbbf24")
+        _style_hdr_btn(self.wide_btn, "#38bdf8")
         self.wide_btn.clicked.connect(self.toggle_wide_mode)
         header.addWidget(self.wide_btn)
 
-        self.rope_btn = QPushButton("⏱️", self)
+        self.rope_btn = QPushButton("⚡", self)
         self.rope_btn.setToolTip("切换烧绳急救极速决策模式 (Alt+R)")
-        _style_hdr_btn(self.rope_btn, "#f59e0b")
+        _style_hdr_btn(self.rope_btn, "#f59e0b", "rgba(245, 158, 11, 0.15)")
         self.rope_btn.clicked.connect(self.toggle_rope_mode)
         header.addWidget(self.rope_btn)
 
-        self.reboot_macro_btn = QPushButton("🚀", self)
+        self.reboot_macro_btn = QPushButton("⟳", self)
         self.reboot_macro_btn.setToolTip("烧绳急救: 秒级极速重启炉石跳过超长动画 (Alt+F12)")
-        _style_hdr_btn(self.reboot_macro_btn, "#ef4444")
+        _style_hdr_btn(self.reboot_macro_btn, "#ef4444", "rgba(239, 68, 68, 0.15)")
         self.reboot_macro_btn.clicked.connect(self.trigger_rope_emergency_reboot)
         header.addWidget(self.reboot_macro_btn)
 
-        self.board_hud_btn = QPushButton("🎯", self)
+        self.board_hud_btn = QPushButton("⊛", self)
         self.board_hud_btn.setToolTip("切换棋盘战术投影与动态箭头 (Alt+V)")
-        _style_hdr_btn(self.board_hud_btn, "#fbbf24")
+        _style_hdr_btn(self.board_hud_btn, "#38bdf8")
         self.board_hud_btn.clicked.connect(self.toggle_board_hud)
         header.addWidget(self.board_hud_btn)
 
-        self.compact_btn = QPushButton("🗕", self)
+        self.compact_btn = QPushButton("−", self)
         self.compact_btn.setToolTip("切换迷你极简胶囊模式 (Alt+M / F9)")
-        _style_hdr_btn(self.compact_btn, "#fbbf24")
+        _style_hdr_btn(self.compact_btn, "#94a3b8")
         self.compact_btn.clicked.connect(self.toggle_compact_mode)
         header.addWidget(self.compact_btn)
 
-        self.settings_btn = QPushButton("⚙️", self)
+        self.settings_btn = QPushButton("⚙", self)
         self.settings_btn.setToolTip("系统参数设置")
         _style_hdr_btn(self.settings_btn, "#ffffff")
         self.settings_btn.clicked.connect(self.open_settings)
@@ -681,43 +684,43 @@ class OverlayWindow(QMainWindow):
         draft_layout.setSpacing(6)
 
         # Quick-entry Hero Draft Advisor Button
-        self.hero_picker_btn = QPushButton("👑 开局英雄三选一评级推荐 (快捷键: Alt+H)", self)
+        self.hero_picker_btn = QPushButton("★ 开局英雄三选一评级推荐 (Alt+H)", self)
         self.hero_picker_btn.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #78350f, stop:1 #92400e);
-                color: #fef08a;
-                font-weight: bold;
-                font-size: 12px;
-                border: 1px solid rgba(245, 158, 11, 0.6);
-                border-radius: 6px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(14, 165, 233, 0.18), stop:1 rgba(56, 189, 248, 0.08));
+                color: #38bdf8;
+                font-weight: 700;
+                font-size: 11.5px;
+                border: 1px solid rgba(56, 189, 248, 0.35);
+                border-radius: 8px;
                 padding: 6px 10px;
                 min-height: 28px;
             }
             QPushButton:hover {
-                background: #b45309;
+                background: rgba(14, 165, 233, 0.28);
                 color: #ffffff;
-                border-color: #fde047;
+                border-color: #38bdf8;
             }
         """)
         self.hero_picker_btn.clicked.connect(self.show_hero_advisor_dialog)
         draft_layout.addWidget(self.hero_picker_btn)
 
-        self.manual_draft_btn = QPushButton("🃏 本轮卡牌三选一对比评估 (快捷键: Alt+C)", self)
+        self.manual_draft_btn = QPushButton("本轮卡牌三选一对比评估 (Alt+C)", self)
         self.manual_draft_btn.setStyleSheet("""
             QPushButton {
-                background: rgba(41, 37, 36, 0.85);
-                color: #fed7aa;
-                font-weight: bold;
+                background: rgba(255, 255, 255, 0.03);
+                color: #94a3b8;
+                font-weight: 600;
                 font-size: 11px;
-                border: 1px solid rgba(120, 113, 108, 0.5);
-                border-radius: 4px;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 8px;
                 padding: 4px 8px;
                 min-height: 24px;
             }
             QPushButton:hover {
-                background: rgba(68, 64, 60, 0.95);
-                color: #ffffff;
-                border-color: #f59e0b;
+                background: rgba(255, 255, 255, 0.07);
+                color: #f8fafc;
+                border-color: rgba(255, 255, 255, 0.18);
             }
         """)
         self.manual_draft_btn.clicked.connect(self.show_manual_draft_dialog)
@@ -737,18 +740,18 @@ class OverlayWindow(QMainWindow):
         self.advice_box.setObjectName("adviceBox")
         self.advice_box.setStyleSheet("""
             QFrame#adviceBox {
-                background: rgba(28, 25, 23, 180);
-                border: 1px solid rgba(87, 83, 78, 0.45);
-                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.025);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                border-radius: 8px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
         """)
         adv_layout = QVBoxLayout(self.advice_box)
-        adv_layout.setContentsMargins(6, 4, 6, 4)
+        adv_layout.setContentsMargins(8, 6, 8, 6)
         adv_layout.setSpacing(2)
         self.advice_lbl = QLabel("等待游戏或OCR检测候选卡牌...", self)
         self.advice_lbl.setWordWrap(True)
-        self.advice_lbl.setStyleSheet("color: #e2e8f0; font-size: 11px;")
+        self.advice_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
         adv_layout.addWidget(self.advice_lbl)
         draft_layout.addWidget(self.advice_box)
 
@@ -756,36 +759,39 @@ class OverlayWindow(QMainWindow):
         self.quota_radar_box = QFrame(self)
         self.quota_radar_box.setStyleSheet("""
             QFrame {
-                background: rgba(30, 41, 59, 0.7);
-                border: 1px solid rgba(245, 158, 11, 0.4);
-                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.02);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                border-radius: 8px;
                 padding: 2px;
             }
             QLabel { background: transparent; border: none; font-size: 11px; }
         """)
         qr_layout = QVBoxLayout(self.quota_radar_box)
-        qr_layout.setContentsMargins(6, 4, 6, 4)
+        qr_layout.setContentsMargins(8, 5, 8, 5)
         qr_layout.setSpacing(2)
-        self.quota_radar_lbl = QLabel("🎯 12胜套牌定额: 1-2费 0/8 | 3-4费 0/10 | 大解 0/3 | 突袭 0/5", self)
-        self.quota_radar_lbl.setStyleSheet("color: #fde68a;")
+        self.quota_radar_lbl = QLabel("12胜套牌定额: 1-2费 0/8 | 3-4费 0/10 | 大解 0/3 | 突袭 0/5", self)
+        self.quota_radar_lbl.setStyleSheet("color: #cbd5e1;")
         self.quota_radar_lbl.setWordWrap(True)
         qr_layout.addWidget(self.quota_radar_lbl)
         draft_layout.addWidget(self.quota_radar_box)
 
         # Export 12-Win Infographic Button
-        self.export_dna_btn = QPushButton("👑 导出12胜战报海报 (Alt+P)", self)
+        self.export_dna_btn = QPushButton("⤓ 导出 12 胜战报海报 (Alt+P)", self)
         self.export_dna_btn.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #b45309, stop:1 #d97706);
-                color: #ffffff;
+                background: rgba(255, 255, 255, 0.04);
+                color: #cbd5e1;
                 font-size: 11px;
-                font-weight: bold;
-                border: 1px solid #f59e0b;
-                border-radius: 4px;
-                padding: 4px;
+                font-weight: 600;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 8px;
+                padding: 5px;
+                min-height: 28px;
             }
             QPushButton:hover {
-                background: #f59e0b;
+                background: rgba(255, 255, 255, 0.08);
+                color: #ffffff;
+                border-color: rgba(255, 255, 255, 0.2);
             }
         """)
         self.export_dna_btn.clicked.connect(self.export_12_win_infographic)
@@ -808,9 +814,9 @@ class OverlayWindow(QMainWindow):
         self.play_status_banner.setObjectName("playStatusBanner")
         self.play_status_banner.setStyleSheet("""
             QFrame#playStatusBanner {
-                background: rgba(28, 25, 23, 160);
-                border: 1px solid rgba(245, 158, 11, 0.3);
-                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.03);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 8px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
         """)
@@ -819,17 +825,17 @@ class OverlayWindow(QMainWindow):
         ps_layout.setSpacing(4)
 
         ps_top_row = QHBoxLayout()
-        self.play_turn_lbl = QLabel("⚡ 回合 1 | 法力水晶: 1/1 💎", self)
-        self.play_turn_lbl.setStyleSheet("color: #fbbf24; font-size: 13px; font-weight: bold;")
+        self.play_turn_lbl = QLabel("回合 1 · 法力水晶 1/1", self)
+        self.play_turn_lbl.setStyleSheet("color: #38bdf8; font-size: 12.5px; font-weight: 800; letter-spacing: 0.5px;")
         self.play_opp_lbl = QLabel("对手: 等待检测", self)
         self.play_opp_lbl.setStyleSheet("""
-            color: #f5f5f4;
-            font-size: 11px;
-            font-weight: bold;
-            background: rgba(41, 37, 36, 0.75);
-            border: 1px solid rgba(87, 83, 78, 0.5);
-            border-radius: 4px;
-            padding: 2px 7px;
+            color: #cbd5e1;
+            font-size: 10.5px;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 2px 8px;
         """)
         ps_top_row.addWidget(self.play_turn_lbl)
         ps_top_row.addStretch()
@@ -843,17 +849,17 @@ class OverlayWindow(QMainWindow):
             QFrame#postureFrame {
                 background: transparent;
                 border: none;
-                border-top: 1px solid rgba(87, 83, 78, 0.25);
+                border-top: 1px solid rgba(255, 255, 255, 0.06);
                 padding-top: 3px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
         """)
         pf_layout = QHBoxLayout(self.posture_frame)
         pf_layout.setContentsMargins(0, 3, 0, 0)
-        self.posture_badge_lbl = QLabel("🛡️ 姿态: 均势博弈", self)
-        self.posture_badge_lbl.setStyleSheet("color: #fbbf24; font-size: 11px; font-weight: bold;")
+        self.posture_badge_lbl = QLabel("姿态: 均势博弈", self)
+        self.posture_badge_lbl.setStyleSheet("color: #94a3b8; font-size: 11px; font-weight: 600;")
         self.clock_lbl = QLabel("斩杀时钟: --", self)
-        self.clock_lbl.setStyleSheet("color: #a8a29e; font-size: 11px;")
+        self.clock_lbl.setStyleSheet("color: #64748b; font-size: 10.5px;")
         pf_layout.addWidget(self.posture_badge_lbl)
         pf_layout.addStretch()
         pf_layout.addWidget(self.clock_lbl)
@@ -1292,10 +1298,9 @@ class OverlayWindow(QMainWindow):
         self.play_actions_frame.setObjectName("playActionsFrame")
         self.play_actions_frame.setStyleSheet("""
             QFrame#playActionsFrame {
-                background: rgba(28, 25, 23, 160);
-                border: none;
-                border-left: 3.5px solid #f59e0b;
-                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.025);
+                border: 1px solid rgba(56, 189, 248, 0.22);
+                border-radius: 8px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
         """)
@@ -1307,19 +1312,19 @@ class OverlayWindow(QMainWindow):
         plan_btn_row = QHBoxLayout()
         plan_btn_row.setSpacing(6)
 
-        pa_title = QLabel("🎯 战术规划", self)
-        pa_title.setStyleSheet("color: #fbbf24; font-size: 11px; font-weight: bold;")
+        pa_title = QLabel("战术规划", self)
+        pa_title.setStyleSheet("color: #38bdf8; font-size: 11px; font-weight: 700;")
         plan_btn_row.addWidget(pa_title)
 
-        self.plan_a_btn = QPushButton("🏆 方案A · 最优线", self)
+        self.plan_a_btn = QPushButton("方案A · 最优线", self)
         self.plan_a_btn.setCursor(Qt.PointingHandCursor)
-        self.plan_a_btn.setStyleSheet("background: #d97706; color: #ffffff; border: 1px solid #f59e0b; padding: 2px 8px; border-radius: 9px; font-weight: bold; font-size: 10px;")
+        self.plan_a_btn.setStyleSheet("background: rgba(14, 165, 233, 0.22); color: #38bdf8; border: 1px solid #0284c7; padding: 2px 8px; border-radius: 9px; font-weight: bold; font-size: 10px;")
         self.plan_a_btn.clicked.connect(lambda: self._switch_plan_view("A"))
         plan_btn_row.addWidget(self.plan_a_btn)
 
-        self.plan_b_btn = QPushButton("⚖️ 方案B · 备选线", self)
+        self.plan_b_btn = QPushButton("方案B · 备选线", self)
         self.plan_b_btn.setCursor(Qt.PointingHandCursor)
-        self.plan_b_btn.setStyleSheet("background: rgba(41, 37, 36, 180); color: #94a3b8; border: 1px solid #44403c; padding: 2px 8px; border-radius: 9px; font-size: 10px;")
+        self.plan_b_btn.setStyleSheet("background: rgba(255, 255, 255, 0.04); color: #64748b; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 8px; border-radius: 9px; font-size: 10px;")
         self.plan_b_btn.clicked.connect(lambda: self._switch_plan_view("B"))
         plan_btn_row.addWidget(self.plan_b_btn)
         plan_btn_row.addStretch()
@@ -1355,7 +1360,7 @@ class OverlayWindow(QMainWindow):
         tr_layout.setContentsMargins(8, 4, 8, 4)
         tr_layout.setSpacing(2)
 
-        self.threat_radar_title = QLabel("🔮 对手下回合高危单卡预警 (Next-Turn Threat Radar)", self)
+        self.threat_radar_title = QLabel("对手下回合高危单卡预警", self)
         self.threat_radar_title.setStyleSheet("color: #a5b4fc; font-size: 10px; font-weight: bold;")
         self.threat_radar_chips_lbl = QLabel("", self)
         self.threat_radar_chips_lbl.setWordWrap(True)
@@ -1365,15 +1370,14 @@ class OverlayWindow(QMainWindow):
         play_content_layout.addWidget(self.threat_radar_frame)
         self.threat_radar_frame.hide()
 
-        # 3.3 Minion Trading & Mana Planning - Warm Flame Orange Accent
+        # 3.3 Minion Trading & Mana Planning
         self.play_trade_frame = QFrame(self)
         self.play_trade_frame.setObjectName("playTradeFrame")
         self.play_trade_frame.setStyleSheet("""
             QFrame#playTradeFrame {
-                background: rgba(28, 25, 23, 120);
-                border: none;
-                border-left: 3.5px solid #ea580c;
-                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.025);
+                border: 1px solid rgba(255, 255, 255, 0.07);
+                border-radius: 8px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
         """)
@@ -1381,8 +1385,8 @@ class OverlayWindow(QMainWindow):
         pt_layout.setContentsMargins(10, 6, 10, 6)
         pt_layout.setSpacing(3)
 
-        pt_title = QLabel("⚔️ 随从交换与场面", self)
-        pt_title.setStyleSheet("color: #fb923c; font-size: 11px; font-weight: bold;")
+        pt_title = QLabel("随从交换与场面", self)
+        pt_title.setStyleSheet("color: #fb923c; font-size: 11px; font-weight: 700;")
         self.play_trade_lbl = QLabel("优先以小换大，保全核心战力", self)
         self.play_trade_lbl.setWordWrap(True)
         self.play_trade_lbl.setStyleSheet("color: #e7e5e4; font-size: 11px;")
@@ -1390,15 +1394,14 @@ class OverlayWindow(QMainWindow):
         pt_layout.addWidget(self.play_trade_lbl)
         play_content_layout.addWidget(self.play_trade_frame)
 
-        # 3.4 Risk & AOE Warning - Soft Crimson Accent
+        # 3.4 Risk & AOE Warning
         self.play_risk_frame = QFrame(self)
         self.play_risk_frame.setObjectName("playRiskFrame")
         self.play_risk_frame.setStyleSheet("""
             QFrame#playRiskFrame {
-                background: rgba(127, 29, 29, 0.20);
-                border: none;
-                border-left: 3.5px solid #ef4444;
-                border-radius: 6px;
+                background: rgba(239, 68, 68, 0.08);
+                border: 1px solid rgba(239, 68, 68, 0.22);
+                border-radius: 8px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
         """)
@@ -1406,7 +1409,7 @@ class OverlayWindow(QMainWindow):
         pr_layout.setContentsMargins(10, 5, 10, 5)
         pr_layout.setSpacing(2)
 
-        self.play_risk_lbl = QLabel("⚠️ 防范对手当回合关键解牌与AOE", self)
+        self.play_risk_lbl = QLabel("防范对手当回合关键解牌与AOE", self)
         self.play_risk_lbl.setWordWrap(True)
         self.play_risk_lbl.setStyleSheet("color: #fca5a5; font-size: 11px;")
         pr_layout.addWidget(self.play_risk_lbl)
@@ -1472,15 +1475,14 @@ class OverlayWindow(QMainWindow):
         intel_layout.setContentsMargins(0, 0, 0, 0)
         intel_layout.setSpacing(6)
 
-        # Opponent Hand Tracker Frame - Amber Accent
+        # Opponent Hand Tracker Frame
         self.hand_frame = QFrame(self.intel_container)
         self.hand_frame.setObjectName("handFrame")
         self.hand_frame.setStyleSheet("""
             QFrame#handFrame {
-                background: rgba(28, 25, 23, 120);
-                border: none;
-                border-left: 3px solid #f59e0b;
-                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.02);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                border-radius: 8px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
         """)
@@ -1488,30 +1490,29 @@ class OverlayWindow(QMainWindow):
         hf_layout.setContentsMargins(8, 6, 8, 6)
         hf_layout.setSpacing(3)
         hf_head = QHBoxLayout()
-        hf_title = QLabel("🖐️ 敌方手牌", self)
-        hf_title.setStyleSheet("color: #fbbf24; font-size: 11px; font-weight: bold;")
+        hf_title = QLabel("敌方手牌", self)
+        hf_title.setStyleSheet("color: #f59e0b; font-size: 11px; font-weight: 700;")
         hf_head.addWidget(hf_title)
         hf_head.addStretch()
         self.hand_count_badge = QLabel("对战中", self)
-        self.hand_count_badge.setStyleSheet("color: #a8a29e; font-size: 10px;")
+        self.hand_count_badge.setStyleSheet("color: #64748b; font-size: 10px;")
         hf_head.addWidget(self.hand_count_badge)
         hf_layout.addLayout(hf_head)
 
         self.hand_status_lbl = QLabel("实时手牌追踪中", self)
         self.hand_status_lbl.setWordWrap(True)
-        self.hand_status_lbl.setStyleSheet("color: #d6d3d1; font-size: 10px;")
+        self.hand_status_lbl.setStyleSheet("color: #94a3b8; font-size: 10px;")
         hf_layout.addWidget(self.hand_status_lbl)
         intel_layout.addWidget(self.hand_frame, stretch=1)
 
-        # Deck Tracker Frame - Emerald Accent
+        # Deck Tracker Frame
         self.deck_frame = QFrame(self.intel_container)
         self.deck_frame.setObjectName("deckFrame")
         self.deck_frame.setStyleSheet("""
             QFrame#deckFrame {
-                background: rgba(28, 25, 23, 120);
-                border: none;
-                border-left: 3px solid #10b981;
-                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.02);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                border-radius: 8px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
         """)
@@ -1519,12 +1520,12 @@ class OverlayWindow(QMainWindow):
         df_layout.setContentsMargins(8, 6, 8, 6)
         df_layout.setSpacing(3)
         df_head = QHBoxLayout()
-        df_title = QLabel("🃏 己方牌库", self)
-        df_title.setStyleSheet("color: #34d399; font-size: 11px; font-weight: bold;")
+        df_title = QLabel("己方牌库", self)
+        df_title.setStyleSheet("color: #34d399; font-size: 11px; font-weight: 700;")
         df_head.addWidget(df_title)
         df_head.addStretch()
         self.deck_count_badge = QLabel("30/30", self)
-        self.deck_count_badge.setStyleSheet("color: #a8a29e; font-size: 10px;")
+        self.deck_count_badge.setStyleSheet("color: #64748b; font-size: 10px;")
         df_head.addWidget(self.deck_count_badge)
         df_layout.addLayout(df_head)
 
@@ -1616,8 +1617,8 @@ class OverlayWindow(QMainWindow):
         self.status_bar_widget = QWidget(self)
         status_bar = QHBoxLayout(self.status_bar_widget)
         status_bar.setContentsMargins(0, 0, 0, 0)
-        self.status_lbl = QLabel("🟢 系统就绪", self)
-        self.status_lbl.setStyleSheet("color: #10b981; font-size: 11px;")
+        self.status_lbl = QLabel("● 系统就绪", self)
+        self.status_lbl.setStyleSheet("color: #10b981; font-size: 10.5px; font-weight: 600;")
         self.lock_lbl = QLabel("", self)
         self.lock_lbl.setStyleSheet("color: #f59e0b; font-size: 11px; font-weight: bold;")
 
@@ -2266,7 +2267,7 @@ class OverlayWindow(QMainWindow):
 
     @pyqtSlot(str)
     def _on_status_updated(self, text: str) -> None:
-        self.status_lbl.setText(f"🟢 {text}")
+        self.status_lbl.setText(f"● {text}")
 
     @pyqtSlot(dict)
     def _on_game_started(self, info: dict) -> None:

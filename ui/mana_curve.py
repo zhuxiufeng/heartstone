@@ -47,13 +47,13 @@ class SingleBarWidget(QWidget):
         self.bar.setFixedHeight(65)
         self.bar.setStyleSheet("""
             QProgressBar {
-                background-color: rgba(20, 20, 24, 200);
-                border: 1px solid rgba(120, 113, 108, 0.35);
+                background-color: rgba(255, 255, 255, 0.04);
+                border: 1px solid rgba(255, 255, 255, 0.08);
                 border-radius: 4px;
             }
             QProgressBar::chunk {
                 background: qlineargradient(x1:0, y1:1, x2:0, y2:0,
-                    stop:0 #b45309, stop:0.55 #f59e0b, stop:1 #fde047);
+                    stop:0 #0284c7, stop:0.6 #38bdf8, stop:1 #a5f3fc);
                 border-radius: 3px;
             }
         """)
@@ -63,13 +63,12 @@ class SingleBarWidget(QWidget):
         self.cost_lbl = QLabel(cost_label, self)
         self.cost_lbl.setAlignment(Qt.AlignCenter)
         self.cost_lbl.setStyleSheet("""
-            color: #fef3c7;
-            font-size: 11px;
-            font-weight: bold;
-            background: rgba(120, 53, 15, 0.45);
-            border: 1px solid rgba(245, 158, 11, 0.35);
-            border-radius: 3px;
-            padding: 1px 3px;
+            color: #94a3b8;
+            font-size: 10.5px;
+            font-weight: 700;
+            background: transparent;
+            border: none;
+            padding: 1px;
         """)
         layout.addWidget(self.cost_lbl)
 
@@ -81,9 +80,9 @@ class SingleBarWidget(QWidget):
 
         # Highlight when cards are present
         if count > 0:
-            self.count_lbl.setStyleSheet("color: #fbbf24; font-size: 11px; font-weight: bold;")
+            self.count_lbl.setStyleSheet("color: #38bdf8; font-size: 11px; font-weight: bold;")
         else:
-            self.count_lbl.setStyleSheet("color: #78716c; font-size: 11px;")
+            self.count_lbl.setStyleSheet("color: #475569; font-size: 11px;")
 
 
 class ManaCurveWidget(QFrame):
@@ -93,8 +92,8 @@ class ManaCurveWidget(QFrame):
         super().__init__(parent)
         self.setStyleSheet("""
             QFrame {
-                background-color: rgba(28, 25, 23, 210);
-                border: 1px solid rgba(245, 158, 11, 0.35);
+                background-color: rgba(255, 255, 255, 0.02);
+                border: 1px solid rgba(255, 255, 255, 0.06);
                 border-radius: 8px;
             }
         """)
@@ -105,10 +104,10 @@ class ManaCurveWidget(QFrame):
 
         # Header title
         header_layout = QHBoxLayout()
-        title_lbl = QLabel("📊 法力曲线 (Mana Curve)", self)
-        title_lbl.setStyleSheet("color: #fbbf24; font-size: 12px; font-weight: bold;")
+        title_lbl = QLabel("法力曲线 · MANA CURVE", self)
+        title_lbl.setStyleSheet("color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;")
         self.total_cards_lbl = QLabel("已抓: 0/30", self)
-        self.total_cards_lbl.setStyleSheet("color: #d6d3d1; font-size: 11px;")
+        self.total_cards_lbl.setStyleSheet("color: #64748b; font-size: 11px;")
 
         header_layout.addWidget(title_lbl)
         header_layout.addStretch()

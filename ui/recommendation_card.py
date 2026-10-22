@@ -46,37 +46,38 @@ class RecommendationCard(QFrame):
 
         self.rank_badge = QLabel(f"#{self.index + 1}", self)
         self.rank_badge.setStyleSheet("""
-            background: rgba(41, 37, 36, 0.85);
-            color: #f5f5f4;
+            background: rgba(255, 255, 255, 0.08);
+            color: #94a3b8;
             font-size: 11px;
             font-weight: bold;
-            padding: 2px 6px;
+            padding: 2px 7px;
             border-radius: 4px;
         """)
 
         self.name_lbl = QLabel("等待候选牌...", self)
-        self.name_lbl.setStyleSheet("color: #fafaf9; font-size: 13px; font-weight: bold;")
+        self.name_lbl.setStyleSheet("color: #f8fafc; font-size: 12.5px; font-weight: 700;")
 
         self.cost_lbl = QLabel("", self)
         self.cost_lbl.setStyleSheet("""
-            background: #b45309;
-            color: #fef3c7;
-            font-size: 11px;
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            font-size: 10.5px;
             font-weight: bold;
             padding: 1px 5px;
-            border-radius: 3px;
+            border-radius: 4px;
         """)
         self.cost_lbl.hide()
 
         self.score_pill = QLabel("--分", self)
         self.score_pill.setAlignment(Qt.AlignCenter)
-        self.score_pill.setFixedWidth(50)
+        self.score_pill.setFixedWidth(52)
         self.score_pill.setStyleSheet("""
-            background: rgba(41, 37, 36, 200);
-            color: #fbbf24;
-            font-size: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #64748b;
+            font-size: 11px;
             font-weight: bold;
-            border: 1px solid rgba(245, 158, 11, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 10px;
             padding: 2px 4px;
         """)
@@ -144,66 +145,64 @@ class RecommendationCard(QFrame):
             self.set_unselected_style()
 
     def set_best_pick_style(self) -> None:
-        self.rank_badge.setText("★ 推荐首选")
+        self.rank_badge.setText("★ 首选")
         self.rank_badge.setStyleSheet("""
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #d97706, stop:1 #b45309);
-            color: #fef08a;
-            font-size: 11px;
+            background: #0284c7;
+            color: #ffffff;
+            font-size: 10.5px;
             font-weight: 800;
-            padding: 3px 8px;
+            padding: 2px 7px;
             border-radius: 4px;
         """)
         self.score_pill.setStyleSheet("""
-            background: rgba(245, 158, 11, 0.25);
-            color: #fbbf24;
-            font-size: 13px;
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            font-size: 12px;
             font-weight: 800;
-            border: 1.5px solid #f59e0b;
+            border: 1px solid rgba(16, 185, 129, 0.35);
             border-radius: 10px;
             padding: 2px 6px;
         """)
         self.setStyleSheet("""
             QFrame#recCard {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 rgba(44, 26, 11, 245),
-                    stop:1 rgba(24, 24, 27, 245));
-                border: 2px solid #f59e0b;
-                border-radius: 10px;
+                background: rgba(14, 165, 233, 0.08);
+                border: 1.5px solid #38bdf8;
+                border-radius: 8px;
             }
             QFrame#recCard:hover {
-                border-color: #fbbf24;
-                background: rgba(58, 35, 15, 255);
+                border-color: #7dd3fc;
+                background: rgba(14, 165, 233, 0.14);
             }
         """)
 
     def set_unselected_style(self) -> None:
         self.rank_badge.setText(f"#{self.index + 1}")
         self.rank_badge.setStyleSheet("""
-            background: rgba(41, 37, 36, 0.85);
-            color: #a8a29e;
-            font-size: 11px;
+            background: rgba(255, 255, 255, 0.06);
+            color: #94a3b8;
+            font-size: 10.5px;
             font-weight: bold;
             padding: 2px 6px;
             border-radius: 4px;
         """)
         self.score_pill.setStyleSheet("""
-            background: rgba(41, 37, 36, 200);
-            color: #a8a29e;
-            font-size: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            color: #64748b;
+            font-size: 11px;
             font-weight: bold;
-            border: 1px solid rgba(120, 113, 108, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 10px;
             padding: 2px 4px;
         """)
         self.setStyleSheet("""
             QFrame#recCard {
-                background-color: rgba(28, 25, 23, 210);
-                border: 1px solid rgba(120, 113, 108, 0.4);
-                border-radius: 10px;
+                background-color: rgba(255, 255, 255, 0.025);
+                border: 1px solid rgba(255, 255, 255, 0.07);
+                border-radius: 8px;
             }
             QFrame#recCard:hover {
-                background-color: rgba(41, 37, 36, 230);
-                border-color: rgba(245, 158, 11, 0.55);
+                background-color: rgba(255, 255, 255, 0.05);
+                border-color: rgba(255, 255, 255, 0.15);
             }
         """)
 
