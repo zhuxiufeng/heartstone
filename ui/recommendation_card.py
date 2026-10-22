@@ -126,6 +126,14 @@ class RecommendationCard(QFrame):
         if getattr(eval_data, "archetype_fit_tag", ""):
             summary_parts.append(f"🧭 <b>原型罗盘</b>: <span style='color: #38bdf8;'>{eval_data.archetype_fit_tag}</span>")
 
+        sat = getattr(eval_data, "saturation_assessment", None)
+        if sat:
+            is_sat = getattr(sat, "is_saturated", None) if not isinstance(sat, dict) else sat.get("is_saturated", False)
+            sat_tag = getattr(sat, "saturation_tag", "") if not isinstance(sat, dict) else sat.get("saturation_tag", "")
+            sat_advice = getattr(sat, "advice", "") if not isinstance(sat, dict) else sat.get("advice", "")
+            if is_sat:
+                summary_parts.append(f"<span style='color: #f87171;'>{sat_tag}</span> <span style='color: #94a3b8; font-size: 10px;'>{sat_advice}</span>")
+
         if eval_data.pros:
             summary_parts.append(f"🟢 优: {', '.join(eval_data.pros)}")
         if eval_data.cons:

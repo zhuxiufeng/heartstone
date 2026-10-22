@@ -3128,7 +3128,13 @@ class OverlayWindow(QMainWindow):
                     trade_text_parts.append(f"• {ot}")
             if getattr(rec, "positioning_advice", ""):
                 trade_text_parts.append(f"\n♟️ **{rec.positioning_advice}**")
-            if getattr(rec, "mana_flow_tag", "") and getattr(rec, "mana_flow_preview", ""):
+            if getattr(rec, "mana_leak_audit", None):
+                mla = rec.mana_leak_audit
+                if mla.has_leak:
+                    trade_text_parts.append(f"\n{mla.audit_tag} **法力穿插:** {mla.weaving_advice}")
+                else:
+                    trade_text_parts.append(f"\n{mla.audit_tag} **费率兑现:** {mla.weaving_advice}")
+            elif getattr(rec, "mana_flow_tag", "") and getattr(rec, "mana_flow_preview", ""):
                 trade_text_parts.append(f"\n{rec.mana_flow_tag} **费率榨干:** {rec.mana_flow_preview}")
             elif getattr(rec, "mana_plan", ""):
                 trade_text_parts.append(f"\n💡 {rec.mana_plan}")
@@ -3136,6 +3142,10 @@ class OverlayWindow(QMainWindow):
 
             # 7. Render risk warnings, burst danger, Discovery Radar & AOE Radar
             risk_lines = []
+            if getattr(rec, "opponent_punish_envelope", None):
+                env = rec.opponent_punish_envelope
+                risk_lines.append(f"🛡️ **【下轮极限威慑包络线 · T{env.next_turn_mana}费】**\n{env.envelope_badge}\n👉 {env.tactical_directive}")
+
             if rec.opponent_burst_danger and rec.opponent_burst_danger.threat_tier in {"CRITICAL_LETHAL", "HIGH_DANGER"}:
                 risk_lines.append(f"🚨 **【敌方斩杀防御】** {rec.opponent_burst_danger.survival_directive}")
             elif getattr(rec, "burst_safety_warning", ""):
@@ -3342,7 +3352,18 @@ class OverlayWindow(QMainWindow):
                     enemy_field_atk=enemy_field_atk,
                     current_turn=turn,
                 )
-                if topdeck_advice:
+                miracle_rep = getattr(rec, "miracle_out_report", None)
+                if miracle_rep and miracle_rep.is_in_miracle_mode and miracle_rep.miracle_outs:
+                    self.topdeck_lbl.show()
+                    outs_str = " · ".join(f"{o.card_name}({o.draw_probability_pct:.1f}%)" for o in miracle_rep.miracle_outs[:3])
+                    self.topdeck_lbl.setText(
+                        f"<b>{miracle_rep.banner_text}</b><br>"
+                        f"🔮 <b>神抽逆转路线:</b> {outs_str}<br>"
+                        f"👉 <b>绝境战术:</b> {miracle_rep.tactical_callout}"
+                    )
+                    self.posture_badge_lbl.setText("🎲 姿态: 绝境神抽逆转 (Clutch Miracle)")
+                    self.posture_badge_lbl.setStyleSheet("color: #ec4899; font-size: 11px; font-weight: bold;")
+                elif topdeck_advice:
                     self.topdeck_lbl.show()
                     self.topdeck_lbl.setText(topdeck_advice.advice_text)
                     if topdeck_advice.recommended_line == "ALL_IN_FACE":
@@ -3592,6 +3613,15 @@ class OverlayWindow(QMainWindow):
                 extra_tips.append(f"🎲 <b>方差:</b> {branch.variance_policy}")
         if extra_tips:
             checklist_lines.append("<div style='margin-top: 3px; font-size: 10px; color: #94a3b8;'>" + " | ".join(extra_tips) + "</div>")
+
+        # Holographic Terminal Delta Simulation (Feature 1: 鬼影实机沙盘预演)
+        ghost_snap = getattr(rec, "ghost_board_snapshot", None)
+        if ghost_snap and getattr(ghost_snap, "terminal_delta_display", ""):
+            checklist_lines.append(
+                f"<div style='margin-top: 6px; padding: 5px 8px; background: rgba(15, 23, 42, 0.7); "
+                f"border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; font-size: 10.5px; line-height: 1.35;'>"
+                f"{ghost_snap.terminal_delta_display}</div>"
+            )
 
         self.play_actions_lbl.setText("<br>".join(checklist_lines))
 

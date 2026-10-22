@@ -71,6 +71,11 @@ from .winrate_estimator import WinRateEstimator, WinRateReport
 from .aoe_radar import AoeRadar, AOEOverextensionGuard, OverextensionAssessment
 from .fatigue_endgame_horizon import FatigueEndgameHorizon, FatigueEndgameReport, EndgameVerdict
 from .hand_age_intel import HandAgeIntel, HandAgeIntelReport
+from .tactical_ghost_board import TacticalGhostBoardSimulator, GhostBoardSnapshot
+from .opponent_punish_envelope import OpponentPunishEnvelopeCalculator, OpponentPunishEnvelope
+from .zero_leak_mana_auditor import ZeroLeakManaAuditor, ManaLeakAuditResult
+from .miracle_out_filter import MiracleOutFilter, MiracleOutReport
+from .temporal_bottleneck_guard import TemporalBottleneckGuard, SaturationAssessment
 
 logger = logging.getLogger("AiEngine")
 
@@ -101,6 +106,7 @@ class CardEvaluation:
     cons: List[str] = field(default_factory=list)
     marginal_delta: float = 0.0
     archetype_fit_tag: str = ""
+    saturation_assessment: Optional[SaturationAssessment] = None
 
 
 @dataclass
@@ -185,6 +191,11 @@ class PlayRecommendation:
     overextension_assessment: Optional[OverextensionAssessment] = None
     fatigue_endgame_report: Optional[FatigueEndgameReport] = None
     bayesian_hand_report: Optional[HandAgeIntelReport] = None
+    # v22 First-Principles Ultimate Attributes
+    ghost_board_snapshot: Optional[GhostBoardSnapshot] = None
+    opponent_punish_envelope: Optional[OpponentPunishEnvelope] = None
+    mana_leak_audit: Optional[ManaLeakAuditResult] = None
+    miracle_out_report: Optional[MiracleOutReport] = None
 
 
 class EvaluationCache:
@@ -656,6 +667,11 @@ class AiEngine:
             if marginal_delta != 0:
                 score += int(marginal_delta)
 
+            # 13. Temporal Action Bottleneck & Saturation Guard (武器与频次瓶颈饱和熔断器)
+            sat_res = TemporalBottleneckGuard.evaluate_card_saturation(card, deck)
+            if sat_res.is_saturated:
+                score += int(sat_res.score_delta)
+
             score = max(35, min(98, score))
 
             if score > max_score:
@@ -663,6 +679,8 @@ class AiEngine:
                 best_idx = idx
 
             card_pros = ["身材扎实" if card.card_type == "MINION" else "法术实用"]
+            if sat_res.is_saturated:
+                card_pros.append(f"{sat_res.saturation_tag}: {sat_res.advice}")
             if archetype_fit_tag:
                 card_pros.append(archetype_fit_tag)
             if curve_fill_note:
@@ -707,6 +725,7 @@ class AiEngine:
                     cons=["后期略显乏力" if card.cost <= 2 else "需要配合"],
                     marginal_delta=marginal_delta,
                     archetype_fit_tag=archetype_fit_tag,
+                    saturation_assessment=sat_res,
                 )
             )
 
@@ -1189,6 +1208,54 @@ class AiEngine:
         if var_rep:
             var_summary_str = f"{var_rep.risk_badge}: {var_rep.strategic_verdict}"
 
+        # 8.9 First-Principles Ultimate Engines (v22)
+        played_minions_list = []
+        spent_for_ghost = 0
+        if mana_eff_plan and mana_eff_plan.current_turn_plays:
+            for c in mana_eff_plan.current_turn_plays:
+                spent_for_ghost += c.cost
+                if getattr(c, "card_type", "") == "MINION":
+                    played_minions_list.append({
+                        "name": getattr(c, "name", "随从"),
+                        "attack": getattr(c, "attack", 2) or 2,
+                        "health": getattr(c, "health", 2) or 2,
+                    })
+
+        ghost_board_res = TacticalGhostBoardSimulator.simulate_turn_outcome(
+            friendly_minions=f_minions,
+            enemy_minions=e_minions,
+            played_minions=played_minions_list,
+            optimal_trades=trade_steps,
+            face_damage=max(0, f_atk - (sum(m.get("health", 2) for m in e_minions) if trade_steps else 0)),
+            current_mana=current_mana,
+            spent_mana=spent_for_ghost,
+            enemy_hp=enemy_hp,
+        )
+
+        punish_envelope_res = OpponentPunishEnvelopeCalculator.calculate_envelope(
+            opponent_class=opponent_class,
+            current_turn_mana=current_mana,
+            enemy_board_attack=e_atk,
+        )
+
+        mana_leak_res = ZeroLeakManaAuditor.audit_mana_spending(
+            available_mana=current_mana,
+            spent_mana=spent_for_ghost,
+            hand_cards=hand_cards,
+            hero_power_cost=2,
+            hero_power_available=True,
+        )
+
+        rem_deck_tuples = [(c, 1) for c in hand_cards]
+        miracle_out_res = MiracleOutFilter.evaluate_miracle_outs(
+            winrate_pct=live_winrate.winrate_pct,
+            remaining_cards=rem_deck_tuples,
+            player_hp=friendly_hp,
+            enemy_hp=enemy_hp,
+            friendly_board_atk=f_atk,
+            enemy_board_atk=e_atk,
+        )
+
         if use_llm and self._gemini_client:
             try:
                 rec = self._evaluate_play_with_llm(
@@ -1251,6 +1318,10 @@ class AiEngine:
                 rec.overextension_assessment = overextension_res
                 rec.fatigue_endgame_report = fatigue_rep
                 rec.bayesian_hand_report = bayesian_hand_rep
+                rec.ghost_board_snapshot = ghost_board_res
+                rec.opponent_punish_envelope = punish_envelope_res
+                rec.mana_leak_audit = mana_leak_res
+                rec.miracle_out_report = miracle_out_res
                 return rec
             except Exception as e:
                 logger.warning(f"LLM Play call failed: {e}. Using fallback.")
@@ -1360,6 +1431,10 @@ class AiEngine:
             overextension_assessment=overextension_res,
             fatigue_endgame_report=fatigue_rep,
             bayesian_hand_report=bayesian_hand_rep,
+            ghost_board_snapshot=ghost_board_res,
+            opponent_punish_envelope=punish_envelope_res,
+            mana_leak_audit=mana_leak_res,
+            miracle_out_report=miracle_out_res,
         )
 
     def evaluate_play_turn_stream(
@@ -1532,7 +1607,13 @@ class AiEngine:
         return None
 
     def _deserialize_draft_recommendation(self, data: Dict[str, Any]) -> DraftRecommendation:
-        evals = [CardEvaluation(**e) for e in data.get("cards_evaluations", [])]
+        evals = []
+        for e in data.get("cards_evaluations", []):
+            e_dict = dict(e)
+            sat_data = e_dict.get("saturation_assessment")
+            if isinstance(sat_data, dict):
+                e_dict["saturation_assessment"] = SaturationAssessment(**sat_data)
+            evals.append(CardEvaluation(**e_dict))
         return DraftRecommendation(
             best_card_index=data.get("best_card_index", 0),
             best_card_name=data.get("best_card_name", ""),
