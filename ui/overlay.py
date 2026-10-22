@@ -201,6 +201,12 @@ from .board_overlay import BoardTacticalOverlay
 from .mana_curve import ManaCurveWidget
 from .recommendation_card import RecommendationCard
 from .settings_dialog import SettingsDialog
+from .acrylic_effects import AcrylicGlassHelper, BreathingAuraController, AuraState
+from .dynamic_island_capsule import DynamicIslandCapsule
+from .winrate_sparkline import WinrateSparklineWidget
+from .magnetic_docking import MagneticDockingManager, DockingAnchor
+from .animated_voice_orb import AnimatedVoiceOrb, OrbVisualState
+from .parallax_card_widget import ParallaxCardWidget
 
 logger = logging.getLogger("Overlay")
 
@@ -484,6 +490,13 @@ class OverlayWindow(QMainWindow):
         """)
         self.setCentralWidget(self.central_card)
 
+        # 3D Acrylic Breathing Aura Controller & Dynamic Island
+        self.aura_controller = BreathingAuraController(self)
+        self.aura_controller.sig_aura_updated.connect(self._on_aura_stylesheet_updated)
+        self.dynamic_island = DynamicIslandCapsule(self)
+        self.dynamic_island.setVisible(False)
+        self.winrate_sparkline = WinrateSparklineWidget(self)
+
         main_layout = QVBoxLayout(self.central_card)
         main_layout.setContentsMargins(10, 8, 10, 8)
         main_layout.setSpacing(8)
@@ -543,6 +556,11 @@ class OverlayWindow(QMainWindow):
                     border-color: {hover_color};
                 }}
             """)
+
+        # Animated Interactive Voice Orb
+        self.voice_orb = AnimatedVoiceOrb(self, size=22)
+        self.voice_orb.setToolTip("AI 大师语音智脑光球 (点击切换声优人格)")
+        header.addWidget(self.voice_orb)
 
         # Header action buttons: Dock, Hero Picker, Theme, Wide, Rope, Board HUD, Compact, Settings, Close
         self.dock_btn = QPushButton("📌", self)
@@ -4312,6 +4330,14 @@ class OverlayWindow(QMainWindow):
         self.central_card.setStyleSheet(f"QFrame#mainFrame {{ {cfg['frame']} }}")
         self.config_manager.set("theme", theme_key, auto_save=True)
         self._on_status_updated(f"已应用视觉主题: {cfg['name']}")
+
+    def _on_aura_stylesheet_updated(self, qss: str) -> None:
+        self.central_card.setStyleSheet(f"QFrame#mainFrame {{ {qss} }}")
+
+    def set_aura_state(self, state: AuraState) -> None:
+        """Dynamically triggers pulsing aura glow border (Lethal, Blunder, Miracle, Zen)."""
+        if hasattr(self, "aura_controller"):
+            self.aura_controller.set_state(state)
 
     def toggle_compact_mode(self) -> None:
         """Toggles between full overlay and compact mini capsule overlay."""

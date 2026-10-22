@@ -1524,6 +1524,57 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
                 "tactical_execution_directive": rep.tactical_execution_directive,
                 "summary_markdown": rep.summary_markdown,
             }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/ui/theme":
+            from ui.acrylic_effects import AuraState, AcrylicGlassHelper
+            aura_str = data.get("aura", "IDLE_CYBER")
+            aura = AuraState(aura_str) if aura_str in AuraState._value2member_map_ else AuraState.IDLE_CYBER
+            qss = AcrylicGlassHelper.get_glass_stylesheet(aura)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok",
+                "aura": aura.value,
+                "stylesheet": qss,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/ui/island/notify":
+            title = data.get("title", "⚡ 斩杀确定！")
+            message = data.get("message", "全员打脸，直接带走！")
+            color = data.get("color", "#f59e0b")
+            duration = int(data.get("duration", 3500))
+            _CURRENT_STATE["last_island_notification"] = {
+                "title": title,
+                "message": message,
+                "color": color,
+                "duration": duration,
+            }
+            _STATE_VERSION += 1
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok",
+                "notification": _CURRENT_STATE["last_island_notification"],
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/ui/dock":
+            from ui.magnetic_docking import MagneticDockingManager
+            rect = data.get("hs_rect", [100, 100, 1920, 1080])
+            mode = data.get("dock_mode", "TOP_RIGHT")
+            anchor = MagneticDockingManager.compute_dock_coordinates(tuple(rect), dock_mode=mode)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "x": anchor.x,
+                "y": anchor.y,
+                "width": anchor.width,
+                "height": anchor.height,
+                "scale_factor": anchor.scale_factor,
+                "is_snapped": anchor.is_snapped,
+            }, ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
@@ -1846,6 +1897,31 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
                 "dominant_axiom": rep.dominant_axiom.value,
                 "axiom_title": rep.axiom_title,
                 "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/ui/theme":
+            from ui.acrylic_effects import AuraState, AcrylicGlassHelper
+            qss = AcrylicGlassHelper.get_glass_stylesheet(AuraState.IDLE_CYBER)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok",
+                "current_theme": _CURRENT_STATE.get("theme", "WARM_OBSIDIAN_GOLD"),
+                "glass_stylesheet": qss,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/ui/dock":
+            from ui.magnetic_docking import MagneticDockingManager
+            anchor = MagneticDockingManager.compute_dock_coordinates((100, 100, 1920, 1080), dock_mode="TOP_RIGHT")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "x": anchor.x,
+                "y": anchor.y,
+                "scale_factor": anchor.scale_factor,
+                "is_snapped": anchor.is_snapped,
             }, ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
