@@ -1575,6 +1575,51 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
                 "scale_factor": anchor.scale_factor,
                 "is_snapped": anchor.is_snapped,
             }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/ui/streamer":
+            active = bool(data.get("active", True))
+            _CURRENT_STATE["is_streamer_mode"] = active
+            _STATE_VERSION += 1
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok",
+                "is_streamer_mode": active,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/ui/prismatic/theme":
+            from ui.prismatic_theme_engine import PrismaticThemeEngine
+            theme_name = data.get("theme", "CYBER_NEON")
+            engine = PrismaticThemeEngine(theme_name)
+            preset = engine.get_current_theme()
+            _CURRENT_STATE["theme"] = preset.name
+            _STATE_VERSION += 1
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok",
+                "theme": preset.to_dict(),
+                "css_variables": engine.generate_css_variables(),
+                "qss": engine.generate_qss(),
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/ui/board/tactics":
+            arrows = data.get("arrows", [])
+            slots = data.get("ghost_slots", [])
+            _CURRENT_STATE["ar_tactics"] = {
+                "arrows": arrows,
+                "ghost_slots": slots,
+            }
+            _STATE_VERSION += 1
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok",
+                "ar_tactics": _CURRENT_STATE["ar_tactics"],
+            }, ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()

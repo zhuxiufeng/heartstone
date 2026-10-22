@@ -207,6 +207,11 @@ from .winrate_sparkline import WinrateSparklineWidget
 from .magnetic_docking import MagneticDockingManager, DockingAnchor
 from .animated_voice_orb import AnimatedVoiceOrb, OrbVisualState
 from .parallax_card_widget import ParallaxCardWidget
+from .ar_board_overlay import ARBoardProjectionWidget, VectorAttackArrow, GhostPlacementSlot, MinionStatusAura
+from .radial_probability_compass import RadialProbabilityCompassWidget
+from .hologram_card_inspector import HologramCardInspectorWidget, HologramCardData
+from .prismatic_theme_engine import PrismaticThemeEngine, ThemePreset
+from .streamer_hud import StreamerHUDController, StreamerTickerWidget
 
 logger = logging.getLogger("Overlay")
 
@@ -299,6 +304,26 @@ class OverlayWindow(QMainWindow):
         "NEON_EMERALD": {
             "name": "恶魔邪能翡翠",
             "frame": "background-color: rgba(12, 28, 22, 245); border: 1.5px solid rgba(16, 185, 129, 0.55); border-radius: 12px;",
+        },
+        "CYBER_NEON": {
+            "name": "赛博霓虹",
+            "frame": "background-color: rgba(15, 23, 42, 235); border: 1.8px solid rgba(56, 189, 248, 0.4); border-radius: 12px;",
+        },
+        "TAVERN_HEARTH": {
+            "name": "酒馆暖木",
+            "frame": "background-color: rgba(38, 24, 14, 240); border: 1.8px solid rgba(245, 158, 11, 0.45); border-radius: 12px;",
+        },
+        "FROZEN_THRONE": {
+            "name": "冰封王座",
+            "frame": "background-color: rgba(12, 28, 48, 240); border: 1.8px solid rgba(103, 232, 249, 0.4); border-radius: 12px;",
+        },
+        "VOID_SHADOW": {
+            "name": "暗影虚空",
+            "frame": "background-color: rgba(26, 16, 37, 245); border: 1.8px solid rgba(192, 132, 252, 0.4); border-radius: 12px;",
+        },
+        "MINIMAL_MONOCHROME": {
+            "name": "极简黑白",
+            "frame": "background-color: rgba(18, 18, 20, 250); border: 1.8px solid rgba(226, 232, 240, 0.3); border-radius: 12px;",
         },
     }
 
@@ -497,6 +522,18 @@ class OverlayWindow(QMainWindow):
         self.dynamic_island.setVisible(False)
         self.winrate_sparkline = WinrateSparklineWidget(self)
 
+        # v18 Display & Interactive Hologram Engine
+        self.theme_engine = PrismaticThemeEngine()
+        self.streamer_controller = StreamerHUDController()
+        self.streamer_ticker = StreamerTickerWidget(self.streamer_controller, self)
+        self.streamer_ticker.setVisible(False)
+        self.radial_compass = RadialProbabilityCompassWidget(self)
+        self.radial_compass.setVisible(False)
+        self.ar_projection = ARBoardProjectionWidget(self)
+        self.ar_projection.setVisible(False)
+        self.card_inspector = HologramCardInspectorWidget(self)
+        self.card_inspector.setVisible(False)
+
         main_layout = QVBoxLayout(self.central_card)
         main_layout.setContentsMargins(10, 8, 10, 8)
         main_layout.setSpacing(8)
@@ -580,6 +617,18 @@ class OverlayWindow(QMainWindow):
         _style_hdr_btn(self.theme_btn, "#f59e0b")
         self.theme_btn.clicked.connect(self.cycle_theme)
         header.addWidget(self.theme_btn)
+
+        self.streamer_btn = QPushButton("📡", self)
+        self.streamer_btn.setToolTip("切换主播极简隐私模式 / OBS 直播跑马灯 (Alt+S)")
+        _style_hdr_btn(self.streamer_btn, "#38bdf8")
+        self.streamer_btn.clicked.connect(self.toggle_streamer_mode)
+        header.addWidget(self.streamer_btn)
+
+        self.compass_btn = QPushButton("🧭", self)
+        self.compass_btn.setToolTip("切换 360° 极坐标概率罗盘与神抽斩杀刻度 (Alt+C)")
+        _style_hdr_btn(self.compass_btn, "#10b981")
+        self.compass_btn.clicked.connect(self.toggle_radial_compass)
+        header.addWidget(self.compass_btn)
 
         self.wide_btn = QPushButton("🗖", self)
         self.wide_btn.setToolTip("切换战术全景大屏 / 常规窗口 (Alt+W)")
@@ -4318,11 +4367,44 @@ class OverlayWindow(QMainWindow):
         self._on_status_updated("已生成起手留牌策略指南")
 
     def cycle_theme(self) -> None:
-        """Cycles between Dark Glass, Cyber Dark, and Classic Tavern themes."""
+        """Cycles between themes in THEMES and syncs with PrismaticThemeEngine."""
         themes = list(self.THEMES.keys())
         curr_idx = themes.index(self._current_theme) if self._current_theme in themes else 0
         next_theme = themes[(curr_idx + 1) % len(themes)]
         self.apply_theme(next_theme)
+        if hasattr(self, "theme_engine") and next_theme in self.theme_engine.THEMES:
+            self.theme_engine.set_theme(next_theme)
+
+    def toggle_streamer_mode(self) -> bool:
+        """Toggles Streamer Minimal Privacy Mode with broadcast ticker."""
+        if not hasattr(self, "streamer_controller"):
+            return False
+        active = self.streamer_controller.toggle_streamer_mode()
+        if hasattr(self, "streamer_ticker"):
+            self.streamer_ticker.setVisible(active)
+        if hasattr(self, "streamer_btn"):
+            if active:
+                self.streamer_btn.setStyleSheet("background: rgba(16, 185, 129, 0.4); color: #10b981; border: 1px solid #10b981;")
+            else:
+                self.streamer_btn.setStyleSheet("background: rgba(30, 41, 59, 200); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);")
+        self._on_status_updated("主播极简隐私模式: 已开启 (防泄密)" if active else "主播模式: 已关闭 (还原全维视窗)")
+        return active
+
+    def toggle_radial_compass(self) -> bool:
+        """Toggles 360-degree polar probability compass."""
+        if not hasattr(self, "radial_compass"):
+            return False
+        is_vis = not self.radial_compass.isVisible()
+        self.radial_compass.setVisible(is_vis)
+        self._on_status_updated("极坐标概率罗盘: 已开启" if is_vis else "极坐标概率罗盘: 已收起")
+        return is_vis
+
+    def inspect_card_hologram(self, card_data: HologramCardData) -> None:
+        """Pops up the high-definition holographic card inspector."""
+        if hasattr(self, "card_inspector"):
+            self.card_inspector.inspect_card(card_data)
+            self.card_inspector.show()
+            self.card_inspector.raise_()
 
     def apply_theme(self, theme_key: str) -> None:
         self._current_theme = theme_key
