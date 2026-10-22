@@ -84,18 +84,18 @@ class CardTooltip(QWidget):
         # Mechanics tags
         self.mechanics_lbl = QLabel("", self)
         self.mechanics_lbl.setWordWrap(True)
-        self.mechanics_lbl.setStyleSheet("color: #fbbf24; font-size: 10px; font-weight: bold;")
+        self.mechanics_lbl.setStyleSheet("color: #38bdf8; font-size: 10px; font-weight: bold;")
         layout.addWidget(self.mechanics_lbl)
 
         # Stats banner (Atk / Health)
         self.stats_lbl = QLabel("⚔️ 4 / 🩸 5", self)
-        self.stats_lbl.setStyleSheet("color: #fbbf24; font-size: 12px; font-weight: bold;")
+        self.stats_lbl.setStyleSheet("color: #34d399; font-size: 12px; font-weight: bold;")
         layout.addWidget(self.stats_lbl)
 
         # Tokens / Titan Abilities
         self.tokens_lbl = QLabel("", self)
         self.tokens_lbl.setWordWrap(True)
-        self.tokens_lbl.setStyleSheet("color: #fef08a; font-size: 10px; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #64748b;")
+        self.tokens_lbl.setStyleSheet("color: #7dd3fc; font-size: 10px; margin-top: 4px; padding-top: 4px; border-top: 1px dashed rgba(56, 189, 248, 0.3);")
         layout.addWidget(self.tokens_lbl)
         self.tokens_lbl.hide()
 

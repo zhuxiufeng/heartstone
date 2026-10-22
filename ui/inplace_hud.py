@@ -61,12 +61,12 @@ class InPlaceBadge(QWidget):
 
         self.score_lbl = QLabel("70分", self)
         self.score_lbl.setAlignment(Qt.AlignCenter)
-        self.score_lbl.setStyleSheet("color: #fbbf24; font-size: 14px; font-weight: bold;")
+        self.score_lbl.setStyleSheet("color: #38bdf8; font-size: 14px; font-weight: bold;")
         frame_layout.addWidget(self.score_lbl)
 
         self.syn_lbl = QLabel("", self)
         self.syn_lbl.setAlignment(Qt.AlignCenter)
-        self.syn_lbl.setStyleSheet("color: #fbbf24; font-size: 9px;")
+        self.syn_lbl.setStyleSheet("color: #34d399; font-size: 9px;")
         frame_layout.addWidget(self.syn_lbl)
 
         layout.addWidget(self.frame)
@@ -86,10 +86,10 @@ class InPlaceBadge(QWidget):
 
         if self._is_best:
             self.title_lbl.setText("★ 首选推荐")
-            self.title_lbl.setStyleSheet("color: #fef08a; font-size: 10px; font-weight: bold;")
+            self.title_lbl.setStyleSheet("color: #38bdf8; font-size: 10px; font-weight: bold;")
         else:
             self.title_lbl.setText(f"候选 #{self.index + 1}")
-            self.title_lbl.setStyleSheet("color: #a8a29e; font-size: 10px;")
+            self.title_lbl.setStyleSheet("color: #94a3b8; font-size: 10px;")
 
         self.score_lbl.setText(f"{self._score}分")
         self.syn_lbl.setText(self._synergy_text)
@@ -99,30 +99,30 @@ class InPlaceBadge(QWidget):
         if self._is_best:
             self.frame.setStyleSheet("""
                 QFrame#badgeFrame {
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(180, 83, 9, 235), stop:1 rgba(120, 53, 15, 235));
-                    border: 2px solid #fbbf24;
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(14, 165, 233, 235), stop:1 rgba(2, 132, 199, 235));
+                    border: 2px solid #38bdf8;
                     border-radius: 8px;
                 }
             """)
-            self.score_lbl.setStyleSheet("color: #fef08a; font-size: 14px; font-weight: bold;")
+            self.score_lbl.setStyleSheet("color: #ffffff; font-size: 14px; font-weight: bold;")
         elif self._score >= 70:
             self.frame.setStyleSheet("""
                 QFrame#badgeFrame {
-                    background: rgba(41, 37, 36, 230);
-                    border: 1.5px solid rgba(245, 158, 11, 0.65);
+                    background: rgba(15, 23, 42, 230);
+                    border: 1.5px solid rgba(56, 189, 248, 0.65);
                     border-radius: 8px;
                 }
             """)
-            self.score_lbl.setStyleSheet("color: #fbbf24; font-size: 14px; font-weight: bold;")
+            self.score_lbl.setStyleSheet("color: #38bdf8; font-size: 14px; font-weight: bold;")
         else:
             self.frame.setStyleSheet("""
                 QFrame#badgeFrame {
-                    background: rgba(28, 25, 23, 210);
-                    border: 1px solid rgba(120, 113, 108, 0.4);
+                    background: rgba(15, 23, 42, 210);
+                    border: 1px solid rgba(255, 255, 255, 0.12);
                     border-radius: 8px;
                 }
             """)
-            self.score_lbl.setStyleSheet("color: #a8a29e; font-size: 14px; font-weight: bold;")
+            self.score_lbl.setStyleSheet("color: #94a3b8; font-size: 14px; font-weight: bold;")
 
 
 class InPlaceHudManager:

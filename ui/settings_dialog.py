@@ -57,141 +57,163 @@ class SettingsDialog(QDialog):
     def _init_ui(self) -> None:
         self.setStyleSheet("""
             QDialog {
-                background-color: #141416;
-                color: #f5f5f4;
+                background-color: #0b0f19;
+                color: #f8fafc;
                 font-family: "Segoe UI", "Microsoft YaHei", "Segoe UI Emoji", "PingFang SC", sans-serif;
             }
             QScrollArea, QScrollArea > QWidget > QWidget {
-                background-color: #141416;
+                background-color: #0b0f19;
                 border: none;
             }
             QWidget#contentWidget {
-                background-color: #141416;
+                background-color: #0b0f19;
             }
             QGroupBox {
-                background-color: #1c1917;
-                border: 1px solid rgba(245, 158, 11, 0.35);
+                background-color: rgba(15, 23, 42, 0.65);
+                border: 1px solid rgba(56, 189, 248, 0.22);
                 border-radius: 8px;
                 margin-top: 14px;
                 padding-top: 20px;
                 padding-bottom: 12px;
                 padding-left: 12px;
                 padding-right: 12px;
-                font-weight: bold;
-                color: #fbbf24;
-                font-size: 13px;
+                font-weight: 800;
+                color: #38bdf8;
+                font-size: 12.5px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 left: 14px;
                 padding: 2px 8px;
-                background-color: #292524;
-                color: #fbbf24;
-                border: 1px solid rgba(245, 158, 11, 0.45);
+                background-color: #0f172a;
+                color: #38bdf8;
+                border: 1px solid rgba(56, 189, 248, 0.45);
                 border-radius: 4px;
             }
             QLabel {
                 background-color: transparent;
-                color: #e7e5e4;
+                color: #cbd5e1;
                 font-size: 12px;
             }
             QCheckBox {
                 background-color: transparent;
-                color: #e7e5e4;
+                color: #cbd5e1;
                 font-size: 12px;
                 spacing: 8px;
             }
             QCheckBox::indicator {
                 width: 16px;
                 height: 16px;
-                border: 1px solid rgba(120, 113, 108, 0.6);
+                border: 1px solid rgba(255, 255, 255, 0.18);
                 border-radius: 4px;
-                background-color: #141416;
+                background-color: #0f172a;
             }
             QCheckBox::indicator:hover {
-                border: 1px solid #fbbf24;
+                border: 1px solid #38bdf8;
             }
             QCheckBox::indicator:checked {
-                background-color: #d97706;
-                border: 1px solid #fbbf24;
+                background-color: #0284c7;
+                border: 1px solid #38bdf8;
             }
             QLineEdit, QComboBox {
-                background-color: #1c1917;
-                border: 1px solid rgba(120, 113, 108, 0.45);
+                background-color: rgba(15, 23, 42, 0.85);
+                border: 1px solid rgba(255, 255, 255, 0.12);
                 border-radius: 6px;
-                color: #fef3c7;
+                color: #f8fafc;
                 padding: 4px 10px;
                 min-height: 28px;
                 font-size: 12px;
             }
             QLineEdit:focus, QComboBox:focus {
-                border: 1.5px solid #fbbf24;
+                border: 1.5px solid #38bdf8;
+                background-color: rgba(15, 23, 42, 0.98);
             }
             QPushButton {
-                background-color: #b45309;
-                color: #fef3c7;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0284c7, stop:1 #0369a1);
+                color: #ffffff;
                 font-weight: bold;
-                border: 1px solid #f59e0b;
+                border: 1px solid #38bdf8;
                 border-radius: 6px;
                 padding: 5px 12px;
                 min-height: 28px;
                 font-size: 12px;
             }
             QPushButton:hover {
-                background-color: #d97706;
-                color: #ffffff;
-                border-color: #fbbf24;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0369a1, stop:1 #0284c7);
+                border-color: #7dd3fc;
             }
             QPushButton:pressed {
-                background-color: #78350f;
+                background-color: #075985;
             }
             QPushButton#secondaryBtn {
-                background-color: #292524;
-                color: #d6d3d1;
+                background-color: rgba(255, 255, 255, 0.06);
+                color: #94a3b8;
                 font-weight: 600;
-                border: 1px solid rgba(120, 113, 108, 0.5);
+                border: 1px solid rgba(255, 255, 255, 0.12);
                 border-radius: 6px;
                 padding: 4px 10px;
             }
             QPushButton#secondaryBtn:hover {
-                background-color: #44403c;
-                color: #fbbf24;
-                border: 1px solid #fbbf24;
+                background-color: rgba(56, 189, 248, 0.15);
+                color: #38bdf8;
+                border: 1px solid #38bdf8;
             }
             QPushButton#secondaryBtn:pressed {
-                background-color: #1c1917;
+                background-color: rgba(14, 165, 233, 0.25);
             }
             QPushButton#actionBtn {
-                background-color: rgba(180, 83, 9, 0.35);
-                color: #fde68a;
+                background-color: rgba(14, 165, 233, 0.16);
+                color: #38bdf8;
                 font-weight: bold;
-                border: 1px solid rgba(245, 158, 11, 0.5);
+                border: 1px solid rgba(56, 189, 248, 0.45);
                 border-radius: 6px;
                 padding: 6px 12px;
             }
             QPushButton#actionBtn:hover {
-                background-color: rgba(217, 119, 6, 0.6);
+                background-color: rgba(14, 165, 233, 0.30);
                 color: #ffffff;
-                border: 1px solid #fbbf24;
+                border: 1px solid #38bdf8;
             }
             QPushButton#actionBtn:pressed {
-                background-color: rgba(120, 53, 15, 0.8);
+                background-color: rgba(2, 132, 199, 0.45);
+            }
+            QSlider::groove:horizontal {
+                border: none;
+                height: 4px;
+                background: rgba(255, 255, 255, 0.12);
+                border-radius: 2px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #0284c7;
+                border-radius: 2px;
+            }
+            QSlider::handle:horizontal {
+                background: #38bdf8;
+                border: 1px solid #ffffff;
+                width: 14px;
+                height: 14px;
+                margin-top: -5px;
+                margin-bottom: -5px;
+                border-radius: 7px;
+            }
+            QSlider::handle:horizontal:hover {
+                background: #7dd3fc;
             }
             QScrollBar:vertical {
                 border: none;
-                background: rgba(20, 20, 24, 0.6);
+                background: rgba(15, 23, 42, 0.6);
                 width: 6px;
                 margin: 0px;
                 border-radius: 3px;
             }
             QScrollBar::handle:vertical {
-                background: rgba(245, 158, 11, 0.4);
+                background: rgba(56, 189, 248, 0.35);
                 min-height: 25px;
                 border-radius: 3px;
             }
             QScrollBar::handle:vertical:hover {
-                background: rgba(245, 158, 11, 0.8);
+                background: rgba(56, 189, 248, 0.75);
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;

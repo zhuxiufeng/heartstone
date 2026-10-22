@@ -951,8 +951,8 @@ class OverlayWindow(QMainWindow):
         self.game_over_frame.setObjectName("gameOverFrame")
         self.game_over_frame.setStyleSheet("""
             QFrame#gameOverFrame {
-                background: rgba(24, 24, 27, 245);
-                border: 2px solid #f59e0b;
+                background: rgba(15, 23, 42, 0.95);
+                border: 1.5px solid #38bdf8;
                 border-radius: 8px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
@@ -962,11 +962,11 @@ class OverlayWindow(QMainWindow):
         gof_layout.setSpacing(5)
 
         self.game_over_title = QLabel("🏁 对局结算完成", self)
-        self.game_over_title.setStyleSheet("color: #fbbf24; font-size: 13px; font-weight: bold;")
+        self.game_over_title.setStyleSheet("color: #38bdf8; font-size: 13px; font-weight: bold;")
         gof_layout.addWidget(self.game_over_title)
 
         self.game_over_grade_lbl = QLabel("⭐ 战局综合评级: 【S】", self)
-        self.game_over_grade_lbl.setStyleSheet("color: #fbbf24; font-size: 12px; font-weight: bold;")
+        self.game_over_grade_lbl.setStyleSheet("color: #34d399; font-size: 12px; font-weight: bold;")
         gof_layout.addWidget(self.game_over_grade_lbl)
 
         self.game_over_turning_lbl = QLabel("🔄 关键转折点: --", self)
@@ -983,17 +983,18 @@ class OverlayWindow(QMainWindow):
         self.return_draft_btn = QPushButton("🃏 返回选牌模式", self)
         self.return_draft_btn.setStyleSheet("""
             QPushButton {
-                background: rgba(180, 83, 9, 0.35);
-                color: #fde68a;
+                background: rgba(14, 165, 233, 0.2);
+                color: #38bdf8;
                 font-size: 11px;
                 font-weight: bold;
                 padding: 4px 10px;
                 border-radius: 4px;
-                border: 1px solid rgba(245, 158, 11, 0.6);
+                border: 1px solid rgba(56, 189, 248, 0.4);
             }
             QPushButton:hover {
-                background: #92400e;
+                background: rgba(14, 165, 233, 0.35);
                 color: #ffffff;
+                border-color: #38bdf8;
             }
         """)
         self.return_draft_btn.clicked.connect(self.toggle_mode)
@@ -1099,21 +1100,21 @@ class OverlayWindow(QMainWindow):
 
         self.replayer_turn_lbl = QLabel("第 1 / 1 回合", self)
         self.replayer_turn_lbl.setAlignment(Qt.AlignCenter)
-        self.replayer_turn_lbl.setStyleSheet("color: #fbbf24; font-size: 12px; font-weight: bold;")
+        self.replayer_turn_lbl.setStyleSheet("color: #38bdf8; font-size: 12px; font-weight: bold;")
         turn_nav_layout.addWidget(self.replayer_turn_lbl)
 
         self.replayer_next_btn = QPushButton("下一回合 ▶", self)
         self.replayer_next_btn.setStyleSheet("""
             QPushButton {
-                background: rgba(41, 37, 36, 0.85);
-                color: #f5f5f4;
+                background: rgba(15, 23, 42, 0.85);
+                color: #f8fafc;
                 font-size: 11px;
                 font-weight: bold;
                 padding: 3px 8px;
                 border-radius: 4px;
-                border: 1px solid rgba(120, 113, 108, 0.5);
+                border: 1px solid rgba(255, 255, 255, 0.15);
             }
-            QPushButton:hover { background: rgba(68, 64, 60, 0.95); border-color: #fbbf24; }
+            QPushButton:hover { background: rgba(56, 189, 248, 0.2); border-color: #38bdf8; color: #38bdf8; }
         """)
         self.replayer_next_btn.clicked.connect(self._replayer_next_turn)
         turn_nav_layout.addWidget(self.replayer_next_btn)
@@ -1154,12 +1155,12 @@ class OverlayWindow(QMainWindow):
 
         self.replayer_ai_line_lbl = QLabel("🤖 AI最优线: --", self)
         self.replayer_ai_line_lbl.setWordWrap(True)
-        self.replayer_ai_line_lbl.setStyleSheet("color: #fbbf24; font-size: 11px;")
+        self.replayer_ai_line_lbl.setStyleSheet("color: #38bdf8; font-size: 11px;")
         det_box_layout.addWidget(self.replayer_ai_line_lbl)
 
         self.replayer_player_line_lbl = QLabel("👤 玩家实战: --", self)
         self.replayer_player_line_lbl.setWordWrap(True)
-        self.replayer_player_line_lbl.setStyleSheet("color: #a7f3d0; font-size: 11px;")
+        self.replayer_player_line_lbl.setStyleSheet("color: #34d399; font-size: 11px;")
         det_box_layout.addWidget(self.replayer_player_line_lbl)
 
         replayer_layout.addWidget(self.replayer_details_box)
@@ -1168,14 +1169,14 @@ class OverlayWindow(QMainWindow):
         self.replayer_back_btn = QPushButton("🏁 返回战果结算", self)
         self.replayer_back_btn.setStyleSheet("""
             QPushButton {
-                background: rgba(41, 37, 36, 0.85);
-                color: #d6d3d1;
+                background: rgba(15, 23, 42, 0.85);
+                color: #cbd5e1;
                 font-size: 11px;
                 padding: 4px 8px;
                 border-radius: 4px;
-                border: 1px solid rgba(120, 113, 108, 0.45);
+                border: 1px solid rgba(255, 255, 255, 0.12);
             }
-            QPushButton:hover { background: rgba(68, 64, 60, 0.95); color: #fbbf24; border-color: #fbbf24; }
+            QPushButton:hover { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border-color: #38bdf8; }
         """)
         self.replayer_back_btn.clicked.connect(self.hide_turn_replayer)
         replayer_ctrl_row.addWidget(self.replayer_back_btn)
@@ -1183,14 +1184,15 @@ class OverlayWindow(QMainWindow):
         self.replayer_key_btn = QPushButton("🎯 跳转关键转折点", self)
         self.replayer_key_btn.setStyleSheet("""
             QPushButton {
-                background: rgba(41, 37, 36, 0.85);
-                color: #fbbf24;
+                background: rgba(14, 165, 233, 0.16);
+                color: #38bdf8;
                 font-size: 11px;
+                font-weight: bold;
                 padding: 4px 8px;
                 border-radius: 4px;
-                border: 1px solid rgba(245, 158, 11, 0.4);
+                border: 1px solid rgba(56, 189, 248, 0.4);
             }
-            QPushButton:hover { background: rgba(68, 64, 60, 0.95); color: #fef08a; border-color: #fbbf24; }
+            QPushButton:hover { background: rgba(14, 165, 233, 0.3); color: #ffffff; border-color: #38bdf8; }
         """)
         self.replayer_key_btn.clicked.connect(self._replayer_jump_key_turn)
         replayer_ctrl_row.addWidget(self.replayer_key_btn)
@@ -1782,7 +1784,7 @@ class OverlayWindow(QMainWindow):
         compact_layout.setSpacing(6)
 
         self.compact_brand_lbl = QLabel("⚔️ 炉石AI", self)
-        self.compact_brand_lbl.setStyleSheet("color: #fbbf24; font-size: 11px; font-weight: bold;")
+        self.compact_brand_lbl.setStyleSheet("color: #38bdf8; font-size: 11px; font-weight: bold;")
         compact_layout.addWidget(self.compact_brand_lbl)
 
         self.compact_mode_pill = QPushButton("选牌", self)
@@ -1790,32 +1792,32 @@ class OverlayWindow(QMainWindow):
         self.compact_mode_pill.setToolTip("点击切换选牌/实战模式")
         self.compact_mode_pill.setStyleSheet("""
             QPushButton {
-                background: rgba(180, 83, 9, 0.35);
-                color: #fde68a;
+                background: rgba(14, 165, 233, 0.2);
+                color: #38bdf8;
                 font-size: 10px;
                 font-weight: bold;
                 padding: 1px 6px;
                 border-radius: 3px;
-                border: 1px solid rgba(245, 158, 11, 0.55);
+                border: 1px solid rgba(56, 189, 248, 0.45);
             }
             QPushButton:hover {
-                background: rgba(217, 119, 6, 0.55);
+                background: rgba(14, 165, 233, 0.35);
                 color: #ffffff;
-                border-color: #fbbf24;
+                border-color: #38bdf8;
             }
         """)
         self.compact_mode_pill.clicked.connect(self.toggle_mode)
         compact_layout.addWidget(self.compact_mode_pill)
 
         self.compact_status_lbl = QLabel("⚔️ 胶囊模式 | 等待对局...", self)
-        self.compact_status_lbl.setStyleSheet("color: #f5f5f4; font-size: 11px;")
+        self.compact_status_lbl.setStyleSheet("color: #f8fafc; font-size: 11px;")
         compact_layout.addWidget(self.compact_status_lbl, 1)
 
         # Right action buttons for compact capsule
         self.compact_expand_btn = QPushButton("🗖", self)
         self.compact_expand_btn.setToolTip("还原完整窗口模式 (Alt+M / F9)")
         self.compact_expand_btn.setCursor(Qt.PointingHandCursor)
-        _style_hdr_btn(self.compact_expand_btn, "#fbbf24")
+        _style_hdr_btn(self.compact_expand_btn, "#38bdf8")
         self.compact_expand_btn.clicked.connect(self.toggle_compact_mode)
         compact_layout.addWidget(self.compact_expand_btn)
 
@@ -4188,35 +4190,40 @@ class OverlayWindow(QMainWindow):
         dialog.setWindowFlags(dialog.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         dialog.setStyleSheet("""
             QDialog {
-                background-color: #141416;
-                color: #f5f5f4;
+                background-color: #0b0f19;
+                color: #f8fafc;
                 font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+                border: 1px solid rgba(56, 189, 248, 0.3);
+                border-radius: 8px;
             }
             QLabel {
-                color: #e7e5e4;
+                color: #cbd5e1;
             }
             QComboBox {
-                background-color: #1c1917;
-                border: 1px solid rgba(245, 158, 11, 0.4);
+                background-color: rgba(15, 23, 42, 0.85);
+                border: 1px solid rgba(255, 255, 255, 0.12);
                 border-radius: 6px;
-                color: #fef3c7;
+                color: #f8fafc;
                 padding: 4px 8px;
                 min-height: 28px;
                 font-size: 12px;
             }
+            QComboBox:focus {
+                border: 1.5px solid #38bdf8;
+            }
             QPushButton {
-                background-color: #b45309;
-                color: #fef3c7;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0284c7, stop:1 #0369a1);
+                color: #ffffff;
                 font-weight: bold;
-                border: 1px solid #f59e0b;
+                border: 1px solid #38bdf8;
                 border-radius: 6px;
                 padding: 6px 12px;
                 min-height: 32px;
                 font-size: 12px;
             }
             QPushButton:hover {
-                background-color: #d97706;
-                color: #ffffff;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0369a1, stop:1 #0284c7);
+                border-color: #7dd3fc;
             }
         """)
 
@@ -4225,7 +4232,7 @@ class OverlayWindow(QMainWindow):
         layout.setContentsMargins(14, 14, 14, 14)
 
         title = QLabel("👑 竞技场开局英雄三选一评估", dialog)
-        title.setStyleSheet("font-size: 15px; font-weight: bold; color: #fbbf24;")
+        title.setStyleSheet("font-size: 15px; font-weight: bold; color: #38bdf8;")
         layout.addWidget(title)
 
         detected = getattr(self, "_last_detected_heroes", [])
@@ -4252,7 +4259,7 @@ class OverlayWindow(QMainWindow):
 
         if len(detected) >= 2:
             tip_text = f"✨ AI 已自动识别到候选英雄: {' / '.join(detected)} (可直接评估或手动微调)："
-            tip_style = "color: #fbbf24; font-size: 11px; font-weight: bold;"
+            tip_style = "color: #38bdf8; font-size: 11px; font-weight: bold;"
         else:
             tip_text = "请确认您当前开局出现的 3 位候选英雄，AI 将立即计算天梯胜率梯队与抓牌策略："
             tip_style = "color: #a8a29e; font-size: 11px;"
@@ -4281,7 +4288,7 @@ class OverlayWindow(QMainWindow):
         for i in range(3):
             col = QVBoxLayout()
             lbl = QLabel(f"候选英雄 {i+1}:", dialog)
-            lbl.setStyleSheet("font-weight: bold; color: #fbbf24; font-size: 11px;")
+            lbl.setStyleSheet("font-weight: bold; color: #38bdf8; font-size: 11px;")
             cb = QComboBox(dialog)
             cb.addItems(hero_options)
             # Pre-select detected hero if available
@@ -4311,15 +4318,15 @@ class OverlayWindow(QMainWindow):
         close_btn = QPushButton("✖ 关闭", dialog)
         close_btn.setStyleSheet("""
             QPushButton {
-                background-color: rgba(41, 37, 36, 0.85);
-                color: #d6d3d1;
-                border: 1px solid rgba(120, 113, 108, 0.45);
+                background-color: rgba(255, 255, 255, 0.06);
+                color: #94a3b8;
+                border: 1px solid rgba(255, 255, 255, 0.12);
                 font-weight: normal;
             }
             QPushButton:hover {
-                background-color: rgba(68, 64, 60, 0.95);
-                color: #fbbf24;
-                border-color: #fbbf24;
+                background-color: rgba(56, 189, 248, 0.15);
+                color: #38bdf8;
+                border-color: #38bdf8;
             }
         """)
         close_btn.clicked.connect(dialog.reject)
@@ -4328,12 +4335,12 @@ class OverlayWindow(QMainWindow):
 
         # Meta Tier List summary
         tier_title = QLabel("📊 当前版本竞技场全职业天梯榜单 (Tier List)", dialog)
-        tier_title.setStyleSheet("font-size: 13px; font-weight: bold; color: #fbbf24; margin-top: 8px;")
+        tier_title.setStyleSheet("font-size: 13px; font-weight: bold; color: #38bdf8; margin-top: 8px;")
         layout.addWidget(tier_title)
 
         scroll = QScrollArea(dialog)
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("background: transparent; border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px;")
+        scroll.setStyleSheet("background: transparent; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px;")
 
         tier_widget = QWidget()
         tier_layout = QVBoxLayout(tier_widget)
@@ -4377,36 +4384,39 @@ class OverlayWindow(QMainWindow):
         dialog.setFixedWidth(360)
         dialog.setStyleSheet("""
             QDialog {
-                background-color: #141416;
-                border: 1px solid rgba(245, 158, 11, 0.45);
+                background-color: #0b0f19;
+                border: 1px solid rgba(56, 189, 248, 0.35);
                 border-radius: 8px;
             }
-            QLabel { color: #f5f5f4; font-size: 12px; }
+            QLabel { color: #cbd5e1; font-size: 12px; }
             QLineEdit {
-                background-color: #1c1917;
-                color: #fef3c7;
-                border: 1px solid rgba(245, 158, 11, 0.4);
+                background-color: rgba(15, 23, 42, 0.85);
+                color: #f8fafc;
+                border: 1px solid rgba(255, 255, 255, 0.12);
                 border-radius: 4px;
                 padding: 6px;
                 font-size: 12px;
             }
-            QLineEdit:focus { border: 1px solid #fbbf24; }
+            QLineEdit:focus { border: 1.5px solid #38bdf8; }
             QPushButton {
-                background-color: #b45309;
-                color: #fef3c7;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0284c7, stop:1 #0369a1);
+                color: #ffffff;
                 font-weight: bold;
-                border: 1px solid #f59e0b;
+                border: 1px solid #38bdf8;
                 border-radius: 4px;
                 padding: 6px 14px;
             }
-            QPushButton:hover { background-color: #d97706; color: #ffffff; }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0369a1, stop:1 #0284c7);
+                border-color: #7dd3fc;
+            }
         """)
         layout = QVBoxLayout(dialog)
         layout.setSpacing(10)
         layout.setContentsMargins(14, 14, 14, 14)
 
         title = QLabel("🃏 竞技场卡牌三选一评估", dialog)
-        title.setStyleSheet("font-size: 14px; font-weight: bold; color: #fbbf24;")
+        title.setStyleSheet("font-size: 14px; font-weight: bold; color: #38bdf8;")
         layout.addWidget(title)
 
         deck_now = self.log_listener.current_deck
@@ -4443,7 +4453,7 @@ class OverlayWindow(QMainWindow):
         for i in range(3):
             col = QVBoxLayout()
             lbl = QLabel(f"候选卡牌 {i+1}:", dialog)
-            lbl.setStyleSheet("font-weight: bold; color: #fbbf24; font-size: 11px;")
+            lbl.setStyleSheet("font-weight: bold; color: #38bdf8; font-size: 11px;")
             line_edit = QLineEdit(dialog)
             line_edit.setText(default_names[i])
             line_edit.setPlaceholderText("输入或确认卡牌名称")
