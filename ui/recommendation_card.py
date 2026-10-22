@@ -96,7 +96,13 @@ class RecommendationCard(QFrame):
 
         self.set_unselected_style()
 
-    def update_evaluation(self, eval_data: CardEvaluation, card_info: Optional[CardInfo] = None) -> None:
+    def update_evaluation(
+        self,
+        eval_data: CardEvaluation,
+        card_info: Optional[CardInfo] = None,
+        delta_lead: float = 0.0,
+        verdict_tag: str = "",
+    ) -> None:
         """Populate widget with card metadata and evaluation metrics."""
         self.name_lbl.setText(eval_data.card_name)
         self.score_pill.setText(f"{eval_data.score}分")
@@ -112,7 +118,11 @@ class RecommendationCard(QFrame):
         else:
             self.cost_lbl.hide()
 
-        summary_parts = [eval_data.summary]
+        summary_parts = []
+        lead_prefix = f"⚡ <b>领先次选 +{delta_lead:.1f}分</b> · " if delta_lead > 0 and eval_data.is_best_pick else ""
+        tag_prefix = f"<b>【{verdict_tag}】</b> " if verdict_tag else ""
+        summary_parts.append(f"{lead_prefix}{tag_prefix}{eval_data.summary}")
+
         if eval_data.pros:
             summary_parts.append(f"🟢 优: {', '.join(eval_data.pros)}")
         if eval_data.cons:
@@ -121,7 +131,7 @@ class RecommendationCard(QFrame):
         self.summary_lbl.setText("\n".join([p for p in summary_parts if p]))
 
         if eval_data.is_best_pick:
-            self.set_best_pick_style()
+            self.set_best_pick_style(delta_lead)
         else:
             self.set_unselected_style()
 
@@ -144,8 +154,9 @@ class RecommendationCard(QFrame):
         else:
             self.set_unselected_style()
 
-    def set_best_pick_style(self) -> None:
-        self.rank_badge.setText("★ 首选")
+    def set_best_pick_style(self, delta_lead: float = 0.0) -> None:
+        badge_text = "★ 绝佳首选" if delta_lead >= 8.0 else "★ 核心推荐"
+        self.rank_badge.setText(badge_text)
         self.rank_badge.setStyleSheet("""
             background: #0284c7;
             color: #ffffff;
@@ -155,23 +166,23 @@ class RecommendationCard(QFrame):
             border-radius: 4px;
         """)
         self.score_pill.setStyleSheet("""
-            background: rgba(16, 185, 129, 0.15);
+            background: rgba(16, 185, 129, 0.18);
             color: #34d399;
             font-size: 12px;
             font-weight: 800;
-            border: 1px solid rgba(16, 185, 129, 0.35);
+            border: 1px solid rgba(16, 185, 129, 0.45);
             border-radius: 10px;
             padding: 2px 6px;
         """)
         self.setStyleSheet("""
             QFrame#recCard {
-                background: rgba(14, 165, 233, 0.08);
+                background: rgba(14, 165, 233, 0.09);
                 border: 1.5px solid #38bdf8;
                 border-radius: 8px;
             }
             QFrame#recCard:hover {
                 border-color: #7dd3fc;
-                background: rgba(14, 165, 233, 0.14);
+                background: rgba(14, 165, 233, 0.16);
             }
         """)
 

@@ -48,6 +48,7 @@ try:
         DraftRecommendation,
         PlayRecommendation,
     )
+    from core.action_tree_search import ActionTreeResult, ActionBranch
     from core.card_db import CardDatabase, CardInfo, get_class_cn
     from core.coin_optimizer import CoinOptimizer, CoinStrategy
     from core.config_manager import ConfigManager
@@ -125,6 +126,7 @@ except (ImportError, ValueError):
         DraftRecommendation,
         PlayRecommendation,
     )
+    from ..core.action_tree_search import ActionTreeResult, ActionBranch
     from ..core.card_db import CardDatabase, CardInfo, get_class_cn
     from ..core.coin_optimizer import CoinOptimizer, CoinStrategy
     from ..core.config_manager import ConfigManager
@@ -1165,8 +1167,8 @@ class OverlayWindow(QMainWindow):
         self.lethal_frame.setObjectName("lethalFrame")
         self.lethal_frame.setStyleSheet("""
             QFrame#lethalFrame {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(180, 83, 9, 0.9), stop:1 rgba(220, 38, 38, 0.9));
-                border: 1px solid #f59e0b;
+                background: rgba(14, 165, 233, 0.14);
+                border: 1.5px solid #38bdf8;
                 border-radius: 8px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
@@ -1174,41 +1176,40 @@ class OverlayWindow(QMainWindow):
         lf_layout = QVBoxLayout(self.lethal_frame)
         lf_layout.setContentsMargins(10, 8, 10, 8)
         lf_layout.setSpacing(3)
-        self.lethal_title_lbl = QLabel("⚡ 斩杀警报 (LETHAL DETECTED)!", self)
-        self.lethal_title_lbl.setStyleSheet("color: #fef08a; font-size: 13px; font-weight: bold;")
+        self.lethal_title_lbl = QLabel("⚡ 绝杀战机已现 (LETHAL DETECTED)!", self)
+        self.lethal_title_lbl.setStyleSheet("color: #38bdf8; font-size: 13px; font-weight: 800; letter-spacing: 0.5px;")
         self.lethal_detail_lbl = QLabel("可造成 0 点伤害", self)
-        self.lethal_detail_lbl.setStyleSheet("color: #ffffff; font-size: 11px; font-weight: bold;")
+        self.lethal_detail_lbl.setStyleSheet("color: #ffffff; font-size: 11.5px; font-weight: bold;")
         self.lethal_steps_lbl = QLabel("", self)
         self.lethal_steps_lbl.setWordWrap(True)
-        self.lethal_steps_lbl.setStyleSheet("color: #fed7aa; font-size: 11px;")
+        self.lethal_steps_lbl.setStyleSheet("color: #cbd5e1; font-size: 11px;")
         lf_layout.addWidget(self.lethal_title_lbl)
         lf_layout.addWidget(self.lethal_detail_lbl)
         lf_layout.addWidget(self.lethal_steps_lbl)
         play_content_layout.addWidget(self.lethal_frame)
         self.lethal_frame.hide()
 
-        # Mulligan Guidance Frame - Clean Left Accent
+        # Mulligan Guidance Frame - Grandmaster Mulligan Cockpit
         self.mulligan_frame = QFrame(self)
         self.mulligan_frame.setObjectName("mulliganFrame")
         self.mulligan_frame.setStyleSheet("""
             QFrame#mulliganFrame {
-                background: rgba(15, 118, 110, 0.25);
-                border: none;
-                border-left: 3.5px solid #14b8a6;
-                border-radius: 6px;
+                background: rgba(13, 148, 136, 0.14);
+                border: 1px solid rgba(20, 184, 166, 0.45);
+                border-radius: 8px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
         """)
         mf_layout = QVBoxLayout(self.mulligan_frame)
-        mf_layout.setContentsMargins(10, 6, 10, 6)
-        mf_layout.setSpacing(3)
+        mf_layout.setContentsMargins(10, 8, 10, 8)
+        mf_layout.setSpacing(4)
         mf_head = QHBoxLayout()
-        mf_title = QLabel("🃏 起手留牌策略 (Mulligan Guide)", self)
-        mf_title.setStyleSheet("color: #2dd4bf; font-size: 11px; font-weight: bold;")
+        mf_title = QLabel("🃏 起手留牌决胜座舱 (Mulligan Guide)", self)
+        mf_title.setStyleSheet("color: #2dd4bf; font-size: 11.5px; font-weight: 800; letter-spacing: 0.5px;")
         mf_head.addWidget(mf_title)
         mf_head.addStretch()
         self.mulligan_coin_badge = QLabel("先手", self)
-        self.mulligan_coin_badge.setStyleSheet("color: #94a3b8; font-size: 10px;")
+        self.mulligan_coin_badge.setStyleSheet("color: #38bdf8; font-size: 10px; font-weight: 700; background: rgba(56, 189, 248, 0.15); border-radius: 4px; padding: 1px 6px;")
         mf_head.addWidget(self.mulligan_coin_badge)
         mf_layout.addLayout(mf_head)
 
@@ -1216,17 +1217,38 @@ class OverlayWindow(QMainWindow):
         self.mulligan_lbl.setWordWrap(True)
         self.mulligan_lbl.setStyleSheet("color: #f0fdfa; font-size: 11px;")
         mf_layout.addWidget(self.mulligan_lbl)
+
+        # Quick enter match button
+        self.mulligan_enter_btn = QPushButton("▶ 确认留牌 · 开启实战出牌", self)
+        self.mulligan_enter_btn.setCursor(Qt.PointingHandCursor)
+        self.mulligan_enter_btn.setStyleSheet("""
+            QPushButton {
+                background: rgba(20, 184, 166, 0.22);
+                color: #2dd4bf;
+                border: 1px solid #14b8a6;
+                padding: 3px 8px;
+                border-radius: 4px;
+                font-size: 10.5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: rgba(20, 184, 166, 0.45);
+                color: #ffffff;
+            }
+        """)
+        self.mulligan_enter_btn.clicked.connect(lambda: self.mulligan_frame.hide())
+        mf_layout.addWidget(self.mulligan_enter_btn)
+
         play_content_layout.addWidget(self.mulligan_frame)
         self.mulligan_frame.hide()
 
-        # Coin Optimizer Frame - Clean Left Accent
+        # Coin Optimizer Frame
         self.coin_frame = QFrame(self)
         self.coin_frame.setObjectName("coinFrame")
         self.coin_frame.setStyleSheet("""
             QFrame#coinFrame {
-                background: rgba(234, 179, 8, 0.12);
-                border: none;
-                border-left: 3.5px solid #eab308;
+                background: rgba(234, 179, 8, 0.10);
+                border: 1px solid rgba(234, 179, 8, 0.35);
                 border-radius: 6px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
@@ -1249,9 +1271,8 @@ class OverlayWindow(QMainWindow):
         self.blunder_frame.setObjectName("blunderFrame")
         self.blunder_frame.setStyleSheet("""
             QFrame#blunderFrame {
-                background: rgba(185, 28, 28, 220);
-                border: none;
-                border-left: 4px solid #ef4444;
+                background: rgba(239, 68, 68, 0.12);
+                border: 1px solid #ef4444;
                 border-radius: 6px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
@@ -1269,13 +1290,13 @@ class OverlayWindow(QMainWindow):
         play_content_layout.addWidget(self.blunder_frame)
         self.blunder_frame.hide()
 
-        # 3.1b Draw & RNG First Directive Banner - Gold Warning Accent
+        # 3.1b Draw & RNG First Directive Banner
         self.draw_directive_frame = QFrame(self)
         self.draw_directive_frame.setObjectName("drawDirectiveFrame")
         self.draw_directive_frame.setStyleSheet("""
             QFrame#drawDirectiveFrame {
-                background: rgba(180, 83, 9, 0.28);
-                border: 1px solid #f59e0b;
+                background: rgba(14, 165, 233, 0.12);
+                border: 1px solid #0284c7;
                 border-radius: 6px;
             }
             QLabel { background: transparent; border: none; padding: 0px; }
@@ -1287,7 +1308,7 @@ class OverlayWindow(QMainWindow):
         self.draw_directive_icon.setStyleSheet("font-size: 13px;")
         self.draw_directive_lbl = QLabel("【不确定性先行】优先打出抽牌/发现，获取信息后再行动！", self)
         self.draw_directive_lbl.setWordWrap(True)
-        self.draw_directive_lbl.setStyleSheet("color: #fde68a; font-size: 10.5px; font-weight: bold;")
+        self.draw_directive_lbl.setStyleSheet("color: #38bdf8; font-size: 10.5px; font-weight: bold;")
         dd_layout.addWidget(self.draw_directive_icon)
         dd_layout.addWidget(self.draw_directive_lbl, 1)
         play_content_layout.addWidget(self.draw_directive_frame)
@@ -1469,9 +1490,44 @@ class OverlayWindow(QMainWindow):
         play_content_layout.addWidget(self.secret_frame)
         self.secret_frame.hide()
 
-        # 3.6 Tactical Intelligence Container (Hand Tracker & Deck Tracker side-by-side)
+        # 3.6 Segmented Tactical Intel Drawer (First Principles: Progressive Disclosure)
+        self.drawer_bar = QWidget(self)
+        db_layout = QHBoxLayout(self.drawer_bar)
+        db_layout.setContentsMargins(0, 2, 0, 2)
+        db_layout.setSpacing(4)
+
+        self.tab_deck_btn = QPushButton("🗃️ 剩余牌库", self)
+        self.tab_hand_btn = QPushButton("👁️ 敌方手牌", self)
+        self.tab_coin_btn = QPushButton("🪙 幸运币/罗盘", self)
+
+        for btn in (self.tab_deck_btn, self.tab_hand_btn, self.tab_coin_btn):
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background: rgba(255, 255, 255, 0.04);
+                    color: #94a3b8;
+                    font-size: 10px;
+                    font-weight: 600;
+                    padding: 3px 8px;
+                    border-radius: 4px;
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                }
+                QPushButton:hover {
+                    background: rgba(255, 255, 255, 0.08);
+                    color: #f8fafc;
+                }
+            """)
+        db_layout.addWidget(self.tab_deck_btn)
+        db_layout.addWidget(self.tab_hand_btn)
+        db_layout.addWidget(self.tab_coin_btn)
+        play_content_layout.addWidget(self.drawer_bar)
+
+        self.tab_deck_btn.clicked.connect(lambda: self._switch_intel_tab("DECK"))
+        self.tab_hand_btn.clicked.connect(lambda: self._switch_intel_tab("HAND"))
+        self.tab_coin_btn.clicked.connect(lambda: self._switch_intel_tab("COIN"))
+
         self.intel_container = QWidget(self)
-        intel_layout = QHBoxLayout(self.intel_container)
+        intel_layout = QVBoxLayout(self.intel_container)
         intel_layout.setContentsMargins(0, 0, 0, 0)
         intel_layout.setSpacing(6)
 
@@ -1490,7 +1546,7 @@ class OverlayWindow(QMainWindow):
         hf_layout.setContentsMargins(8, 6, 8, 6)
         hf_layout.setSpacing(3)
         hf_head = QHBoxLayout()
-        hf_title = QLabel("敌方手牌", self)
+        hf_title = QLabel("敌方手牌逆向推演", self)
         hf_title.setStyleSheet("color: #f59e0b; font-size: 11px; font-weight: 700;")
         hf_head.addWidget(hf_title)
         hf_head.addStretch()
@@ -1503,7 +1559,8 @@ class OverlayWindow(QMainWindow):
         self.hand_status_lbl.setWordWrap(True)
         self.hand_status_lbl.setStyleSheet("color: #94a3b8; font-size: 10px;")
         hf_layout.addWidget(self.hand_status_lbl)
-        intel_layout.addWidget(self.hand_frame, stretch=1)
+        intel_layout.addWidget(self.hand_frame)
+        self.hand_frame.hide()
 
         # Deck Tracker Frame
         self.deck_frame = QFrame(self.intel_container)
@@ -1520,7 +1577,7 @@ class OverlayWindow(QMainWindow):
         df_layout.setContentsMargins(8, 6, 8, 6)
         df_layout.setSpacing(3)
         df_head = QHBoxLayout()
-        df_title = QLabel("己方牌库", self)
+        df_title = QLabel("己方剩余牌库", self)
         df_title.setStyleSheet("color: #34d399; font-size: 11px; font-weight: 700;")
         df_head.addWidget(df_title)
         df_head.addStretch()
@@ -1539,9 +1596,12 @@ class OverlayWindow(QMainWindow):
         self.topdeck_lbl.setStyleSheet("color: #fbcfe8; font-size: 10px; margin-top: 2px;")
         df_layout.addWidget(self.topdeck_lbl)
         self.topdeck_lbl.hide()
-        intel_layout.addWidget(self.deck_frame, stretch=1)
+        intel_layout.addWidget(self.deck_frame)
 
         play_content_layout.addWidget(self.intel_container)
+        self._active_intel_tab = "DECK"
+        self._intel_expanded = True
+        self.tab_deck_btn.setStyleSheet("background: rgba(14, 165, 233, 0.18); color: #38bdf8; font-size: 10px; font-weight: bold; padding: 3px 8px; border-radius: 4px; border: 1px solid #0284c7;")
 
         # Absorb vertical space so cards stack naturally without stretching
         play_content_layout.addStretch(1)
@@ -2104,11 +2164,25 @@ class OverlayWindow(QMainWindow):
                 use_llm=False,
             )
 
-            # Update 3 UI cards
+            # Compute lead delta and best pick tag
+            scores = [e.score for e in rec.cards_evaluations]
+            sorted_scores = sorted(scores, reverse=True)
+            lead_delta = sorted_scores[0] - sorted_scores[1] if len(sorted_scores) > 1 else 0.0
+
+            # Update 3 UI cards with First-Principles advantage tags
             for idx in range(3):
                 eval_item = rec.cards_evaluations[idx]
                 c_info = candidates[idx]
-                self.rec_cards[idx].update_evaluation(eval_item, c_info)
+                delta = lead_delta if eval_item.is_best_pick else 0.0
+                tag = ""
+                if eval_item.is_best_pick:
+                    if eval_item.score >= 90:
+                        tag = "S级核心"
+                    elif "曲线" in eval_item.summary or (hasattr(rec, "curve_advice") and "曲线" in str(rec.curve_advice)):
+                        tag = "曲线急缺"
+                    else:
+                        tag = "综合最优"
+                self.rec_cards[idx].update_evaluation(eval_item, c_info, delta_lead=delta, verdict_tag=tag)
 
             # Update in-place screen HUD badges directly pinned on top of Hearthstone cards
             try:
@@ -2124,6 +2198,14 @@ class OverlayWindow(QMainWindow):
                 strat_text += f"\n🎯 风格特化: {rec.archetype_advice}"
             strat_text += f"\n📊 套牌雷达: 【{radar_rep.archetype_title}】 (平衡度: {radar_rep.overall_balance_score:.0f}分)"
             self.advice_lbl.setText(strat_text)
+
+            # Update mana curve deck health panorama
+            if hasattr(self, "mana_curve_widget") and hasattr(self.mana_curve_widget, "update_deck_health"):
+                self.mana_curve_widget.update_deck_health(
+                    archetype=radar_rep.archetype_title,
+                    health_pct=int(radar_rep.overall_balance_score),
+                    notice="核心战术成型" if len(deck) >= 15 else "早期框架搭建",
+                )
 
             # 2. Asynchronous LLM Enhancement: if Gemini is configured, compute in background
             if self.ai_engine.has_llm_client():
@@ -2397,7 +2479,87 @@ class OverlayWindow(QMainWindow):
                 import threading
                 threading.Thread(target=_bg_play_eval, daemon=True).start()
 
-            # 3.2. Update Live Blunder Shield Interceptor Banner
+            # 3.2. Priority 0: Real-Time Lethal & Survival Calculation (First Principles)
+            friendly_board_objs = payload.get("friendly_board_objs", [])
+            if not friendly_board_objs and friendly:
+                for item in friendly:
+                    atk_val = 2
+                    if "(" in str(item) and "/" in str(item):
+                        try:
+                            atk_val = int(str(item).split("(")[1].split("/")[0])
+                        except Exception:
+                            atk_val = 2
+                    friendly_board_objs.append({"name": str(item), "atk": atk_val, "can_attack": True, "windfury": False})
+
+            enemy_taunts = payload.get("enemy_taunt_objs", [])
+            enemy_hp_val = payload.get("enemy_hp", 30)
+            enemy_armor_val = payload.get("enemy_armor", 0)
+
+            lethal_res: LethalResult = self.lethal_calculator.calculate_lethal(
+                friendly_minions=friendly_board_objs,
+                enemy_taunts=enemy_taunts,
+                hand_cards=hand,
+                available_mana=mana,
+                enemy_hp=enemy_hp_val,
+                enemy_armor=enemy_armor_val,
+                hero_class=payload.get("friendly_hero", "MAGE"),
+                hero_power_available=payload.get("hero_power_available", True),
+            )
+
+            if lethal_res.is_lethal:
+                self.lethal_frame.show()
+                self.lethal_title_lbl.setText("⚡ 绝杀战机已现 (LETHAL DETECTED)!")
+                self.lethal_title_lbl.setStyleSheet("color: #38bdf8; font-size: 13px; font-weight: 800; letter-spacing: 0.5px;")
+                self.lethal_frame.setStyleSheet("""
+                    QFrame#lethalFrame {
+                        background: rgba(14, 165, 233, 0.15);
+                        border: 1.5px solid #38bdf8;
+                        border-radius: 8px;
+                    }
+                    QLabel { background: transparent; border: none; padding: 0px; }
+                """)
+                self.lethal_detail_lbl.setText(
+                    f"可造成 {lethal_res.total_damage} 点斩杀伤害 (敌方血量 {lethal_res.target_hp}，溢出 {lethal_res.overkill} 点)！"
+                )
+                self.lethal_steps_lbl.setText("<b>斩杀执行路径:</b><br>" + "<br>".join(f"• {s}" for s in lethal_res.action_steps))
+                self.sound_engine.notify_lethal(damage=lethal_res.total_damage)
+            elif getattr(rec, "two_turn_lethal_advice", ""):
+                self.lethal_frame.show()
+                self.lethal_title_lbl.setText("⚔️ 两回合将死推演 · TWO-TURN LETHAL")
+                self.lethal_title_lbl.setStyleSheet("color: #fbbf24; font-size: 13px; font-weight: 800;")
+                self.lethal_frame.setStyleSheet("""
+                    QFrame#lethalFrame {
+                        background: rgba(245, 158, 11, 0.12);
+                        border: 1.5px solid #f59e0b;
+                        border-radius: 8px;
+                    }
+                    QLabel { background: transparent; border: none; padding: 0px; }
+                """)
+                self.lethal_detail_lbl.setText(rec.two_turn_lethal_advice)
+                self.lethal_steps_lbl.setText("💡 战术导向: 全员走脸控血，敌方下回合无解场必崩盘！")
+                self.sound_engine.notify_two_turn_lethal()
+            elif rec.opponent_burst_danger and rec.opponent_burst_danger.threat_tier == "CRITICAL_LETHAL":
+                self.lethal_frame.show()
+                self.lethal_title_lbl.setText("🚨 敌方绝杀警报！下回合面临死亡威胁！")
+                self.lethal_title_lbl.setStyleSheet("color: #f87171; font-size: 13px; font-weight: 800;")
+                self.lethal_frame.setStyleSheet("""
+                    QFrame#lethalFrame {
+                        background: rgba(239, 68, 68, 0.15);
+                        border: 1.5px solid #ef4444;
+                        border-radius: 8px;
+                    }
+                    QLabel { background: transparent; border: none; padding: 0px; }
+                """)
+                self.lethal_detail_lbl.setText(rec.opponent_burst_danger.survival_directive)
+                self.lethal_steps_lbl.setText(
+                    f"敌方场攻: {rec.opponent_burst_danger.opponent_field_atk} | 空场直伤: ~{rec.opponent_burst_danger.empty_board_burst} | 总斩杀: {rec.opponent_burst_danger.total_projected_damage} 点<br>"
+                    f"👉 生存法则: 必须优先解掉敌方高攻随从，或打出嘲讽/叠甲抬血！"
+                )
+                self.sound_engine.notify_opponent_lethal_threat(rec.opponent_burst_danger.lethal_deficit)
+            else:
+                self.lethal_frame.hide()
+
+            # 3.3. Update Live Blunder Shield Interceptor Banner
             if rec.blunder_alerts:
                 self.blunder_frame.show()
                 alert_text = "\n".join(rec.blunder_alerts)
@@ -2450,9 +2612,8 @@ class OverlayWindow(QMainWindow):
                         self.coin_title_lbl.setText("🪙 幸运币规划 👉【本回合跳币最佳时刻】")
                         self.coin_frame.setStyleSheet("""
                             QFrame#coinFrame {
-                                background: rgba(20, 83, 45, 180);
-                                border: none;
-                                border-left: 3.5px solid #22c55e;
+                                background: rgba(16, 185, 129, 0.15);
+                                border: 1px solid #10b981;
                                 border-radius: 6px;
                             }
                             QLabel { background: transparent; border: none; padding: 0px; }
@@ -2461,9 +2622,8 @@ class OverlayWindow(QMainWindow):
                         self.coin_title_lbl.setText("🪙 幸运币规划 ⚠️【切勿乱交！保留节奏】")
                         self.coin_frame.setStyleSheet("""
                             QFrame#coinFrame {
-                                background: rgba(127, 29, 29, 180);
-                                border: none;
-                                border-left: 3.5px solid #ef4444;
+                                background: rgba(239, 68, 68, 0.15);
+                                border: 1px solid #ef4444;
                                 border-radius: 6px;
                             }
                             QLabel { background: transparent; border: none; padding: 0px; }
@@ -2472,9 +2632,8 @@ class OverlayWindow(QMainWindow):
                         self.coin_title_lbl.setText("🪙 幸运币节奏曲线 (Coin Optimizer)")
                         self.coin_frame.setStyleSheet("""
                             QFrame#coinFrame {
-                                background: rgba(234, 179, 8, 0.12);
-                                border: none;
-                                border-left: 3.5px solid #eab308;
+                                background: rgba(234, 179, 8, 0.10);
+                                border: 1px solid rgba(234, 179, 8, 0.35);
                                 border-radius: 6px;
                             }
                             QLabel { background: transparent; border: none; padding: 0px; }
@@ -2497,185 +2656,195 @@ class OverlayWindow(QMainWindow):
                 self._announced_face_pivot = True
                 self.sound_engine.notify_tactical_callout("全员走脸压血")
 
-            # 5.3 Update LAN Mobile Web Companion with v8 Ultra metrics
-            if hasattr(self, "web_companion"):
-                b1 = rec.best_branch
-                b2 = rec.alt_branch
-                from core.tactical_tree_visualizer import TacticalDecisionTree
-                from core.tilt_guard import TiltGuard
-                from core.highlight_recorder import HighlightClipRecorder
+            # 5.3 Secondary Intelligence & Web Companion (Protected Non-Blocking Sandbox)
+            try:
+                if hasattr(self, "web_companion"):
+                    b1 = rec.best_branch
+                    b2 = rec.alt_branch
+                    from core.tactical_tree_visualizer import TacticalDecisionTree
+                    from core.tilt_guard import TiltGuard
+                    from core.highlight_recorder import HighlightClipRecorder
 
-                TiltGuard.get_instance().record_turn_action(duration_sec=3.5, blunders=len(rec.blunder_alerts))
-                mind_dossier = " | ".join([f"#{c['slot']} {c['provenance']}: {c['deduction']}" for c in self.hand_tracker.get_mind_reading_report()[:3]]) if hasattr(self, "hand_tracker") else ""
+                    TiltGuard.get_instance().record_turn_action(duration_sec=3.5, blunders=len(rec.blunder_alerts))
+                    mind_dossier = " | ".join([f"#{c['slot']} {c['provenance']}: {c['deduction']}" for c in self.hand_tracker.get_mind_reading_report()[:3]]) if hasattr(self, "hand_tracker") else ""
 
-                tree_ascii = ""
-                if b1:
-                    alts = [b2] if b2 else []
-                    tree_root = TacticalDecisionTree.build_tree(ActionTreeResult(b1, alts), mana, friendly_hp, enemy_hp, opp)
-                    tree_ascii = TacticalDecisionTree.to_ascii_tree(tree_root)
+                    tree_ascii = ""
+                    if b1:
+                        alts = [b2] if b2 else []
+                        tree_root = TacticalDecisionTree.build_tree(ActionTreeResult(b1, alts), mana, friendly_hp, enemy_hp, opp)
+                        tree_ascii = TacticalDecisionTree.to_ascii_tree(tree_root)
 
-                # Coach directive & Lethal flag evaluation
-                is_lth = bool(b1 and b1.damage_to_face >= enemy_hp and enemy_hp > 0)
-                if is_lth:
-                    c_dir = "绝杀战机已现！全部战力全力走脸斩杀！"
-                elif "孤注一掷" in getattr(rec, "hypergeometric_summary", ""):
-                    c_dir = "局势落后，唯有搏命神抽直伤/关键解牌，拼脸放手一搏！"
-                elif rec.aoe_threats and any("烈焰" in t or "乱斗" in t for t in rec.aoe_threats):
-                    c_dir = "进入敌方核心清场回合，注意克制下怪，防止一波清空！"
-                elif getattr(rec, "draw_first_directive", ""):
-                    c_dir = getattr(rec, "draw_first_directive", "")
-                else:
-                    c_dir = getattr(rec, "compass_directive", "") or "按费平滑出牌，稳固随从交换优势。"
-
-                # v10 Apex: Topdeck Matrix, Multi-Turn Lookahead, Game Phase, Capsule HUD
-                rem_deck = self.deck_tracker.get_stats().remaining_cards if hasattr(self, "deck_tracker") else []
-                topdeck_rep = TopdeckMatrix.evaluate(
-                    remaining_cards=rem_deck,
-                    friendly_hp=friendly_hp,
-                    enemy_hp=enemy_hp,
-                    friendly_field_atk=b1.damage_to_face if b1 else 0,
-                    enemy_field_atk=getattr(rec, "enemy_board_attack", 0),
-                    available_mana=mana,
-                )
-
-                friendly_minions_list = [{"attack": getattr(m, "attack", 0), "health": getattr(m, "health", 0)} for m in getattr(rec, "friendly_minions", [])]
-                enemy_minions_list = [{"attack": getattr(m, "attack", 0), "health": getattr(m, "health", 0)} for m in getattr(rec, "enemy_minions", [])]
-                lookahead_rep = MultiTurnLookahead.evaluate_horizon(
-                    friendly_minions=friendly_minions_list,
-                    enemy_minions=enemy_minions_list,
-                    friendly_hp=friendly_hp,
-                    enemy_hp=enemy_hp,
-                    opponent_class=opp,
-                    current_turn=turn,
-                )
-
-                phase_state = GamePhaseMachine.evaluate(
-                    current_turn=turn,
-                    available_mana=mana,
-                    remaining_deck_count=self.deck_tracker.get_stats().total_remaining if hasattr(self, "deck_tracker") else 20,
-                    friendly_hp=friendly_hp,
-                    enemy_hp=enemy_hp,
-                )
-
-                miracle_top = topdeck_rep.miracle_outs[0].card_name if topdeck_rep.miracle_outs else ""
-                miracle_prob = topdeck_rep.miracle_outs[0].draw_probability_pct if topdeck_rep.miracle_outs else 0.0
-                capsule_data = CapsuleHUD.format_display(
-                    has_lethal=is_lth,
-                    lethal_desc=c_dir if is_lth else "",
-                    primary_action=b1.action_sequence[0] if (b1 and b1.action_sequence) else "稳健控场",
-                    winrate_pct=b1.projected_winrate if b1 else 50.0,
-                    miracle_card=miracle_top,
-                    miracle_pct=miracle_prob,
-                    is_capsule_active=getattr(self, "is_compact_mode", False),
-                )
-
-                # v11 Legendary: Secret Probing, Hand Age Intel, Deck Matchup Sandbox
-                active_sec = self.secret_tracker.get_active_secrets() if hasattr(self, "secret_tracker") else []
-                secret_rep = SecretDeathrattleSimulator.evaluate_probing_order(
-                    active_secrets=active_sec,
-                    friendly_minions=friendly_minions_list,
-                    friendly_hand=[],
-                    friendly_hp=friendly_hp,
-                )
-
-                hand_age_rep = self.hand_age_intel.update_turn(turn) if hasattr(self, "hand_age_intel") else None
-                matchup_rep = DeckMatchupSandbox.evaluate_deck(rem_deck)
-
-                # v13 Supreme Omniscience: Neural Hand Silhouette
-                hand_raw = [
-                    {"slot": c.slot, "hold_turns": c.hold_turns, "origin": c.origin.value}
-                    for c in getattr(hand_age_rep, "cards", [])
-                ] if hand_age_rep else []
-                silhouette_rep = NeuralHandSilhouette.evaluate_hand_silhouette(
-                    opponent_class=opp,
-                    hand_cards_info=hand_raw,
-                    current_turn=turn,
-                )
-
-                # v12 Grandmaster Co-Pilot Step Plan & Conversational Voice Streaming
-                copilot_plan = MasterCoPilotEngine.build_step_plan(
-                    action_sequence=b1.action_sequence if b1 else (rec.checklist_steps or rec.suggested_plays),
-                    trading_plan=rec.trading_plan,
-                    had_lethal=is_lth,
-                    friendly_hp=friendly_hp,
-                    enemy_hp=enemy_hp,
-                    mana=mana,
-                    turn=turn,
-                )
-                MasterCoPilotEngine.get_instance().load_turn_plan(copilot_plan)
-
-                tts_streamer = ConversationalTtsStreamer.get_instance()
-                if hasattr(self, "sound_engine"):
-                    tts_streamer.set_speaker_func(lambda msg: self.sound_engine.speak(msg) if getattr(self.sound_engine, "tts_enabled", False) else None)
-                tts_streamer.speak_macro_overview(copilot_plan.macro_voice_overview)
-                active_st = copilot_plan.get_active_step()
-                if active_st:
-                    tts_streamer.speak_step_guidance(active_st.conversational_voice)
-
-                self.web_companion.update_state({
-                    "mode": "PLAY",
-                    "turn": turn,
-                    "mana": mana,
-                    "max_mana": max_mana,
-                    "opponent_hero": opp,
-                    "archetype": getattr(arch_report, "archetype_name", "--") if arch_report else "--",
-                    "winrate_pct": b1.projected_winrate if b1 else 50.0,
-                    "plan_a_title": b1.plan_name if b1 else "最优方案",
-                    "plan_a_steps": b1.action_sequence if b1 else (rec.checklist_steps or rec.suggested_plays),
-                    "plan_a_ev": b1.ev_score if b1 else 0.0,
-                    "plan_b_title": b2.plan_name if b2 else "",
-                    "plan_b_steps": b2.action_sequence if b2 else getattr(rec, "plan_b_steps", []),
-                    "plan_b_ev": b2.ev_score if b2 else 0.0,
-                    "blunder_alert": rec.blunder_alerts[0] if rec.blunder_alerts else "",
-                    "compass_directive": getattr(rec, "compass_directive", ""),
-                    "burst_danger": rec.opponent_burst_danger.danger_badge if (rec.opponent_burst_danger and rec.opponent_burst_danger.threat_tier in {"CRITICAL_LETHAL", "HIGH_DANGER"}) else "",
-                    "discover_guidance": f"{rec.discover_guidance.priority_badge}: {rec.discover_guidance.guidance_text}" if rec.discover_guidance else "",
-                    "variance_policy": getattr(b1, "variance_policy", "") if b1 else "",
-                    "curve_foresight": getattr(b1, "curve_foresight_text", "") if b1 else "",
-                    "positioning_advice": getattr(b1, "positioning_slot_advice", "") if b1 else "",
-                    "draw_first_directive": getattr(rec, "draw_first_directive", ""),
-                    "next_turn_threat_cards": getattr(rec, "next_turn_threat_cards", []),
-                    "lethal_cushion": getattr(rec, "lethal_cushion", ""),
-                    "rng_badge": rec.rng_report.summary_badge if (getattr(rec, "rng_report", None) and rec.rng_report.summary_badge) else "",
-                    "personal_habit_reminder": getattr(rec, "personal_weakness_reminder", ""),
-                    "ghost_board_summary": self.board_tactical_overlay.get_ghost_board_summary() if hasattr(self, "board_tactical_overlay") else "",
-                    "negative_deductions": self.hand_tracker.get_negative_deductions() if hasattr(self, "hand_tracker") else [],
-                    "resilience_badge": getattr(b1, "resilience_badge", "") if b1 else "",
-                    "resilience_verdict": getattr(rec, "resilience_verdict", ""),
-                    "hypergeometric_gamble": getattr(rec, "hypergeometric_summary", ""),
-                    "tilt_status": getattr(rec, "tilt_summary", ""),
-                    "mind_reading_summary": mind_dossier,
-                    "decision_tree_ascii": tree_ascii,
-                    "coach_directive": c_dir,
-                    "is_lethal": is_lth,
-                    "topdeck_summary": topdeck_rep.summary_markdown,
-                    "topdeck_matrix": topdeck_rep.to_dict(),
-                    "lookahead_summary": lookahead_rep.summary_markdown,
-                    "lookahead_table": lookahead_rep.forecast_table_ascii,
-                    "game_phase": phase_state.phase.value,
-                    "game_phase_zh": phase_state.phase_name_zh,
-                    "game_phase_weights": {
-                        "tempo": phase_state.tempo_weight,
-                        "card_advantage": phase_state.card_advantage_weight,
-                        "face_pressure": phase_state.face_pressure_weight,
-                        "survival": phase_state.survival_weight,
-                    },
-                    "capsule_summary": capsule_data.status_summary_line,
-                    "secrets_summary": secret_rep.summary_markdown,
-                    "hand_age_summary": hand_age_rep.summary_markdown if hand_age_rep else "",
-                    "matchup_sandbox": matchup_rep.to_dict(),
-                    "copilot_plan": copilot_plan.to_dict(),
-                    "hand_silhouette": silhouette_rep.to_dict(),
-                })
-
-                # Coach voice commentary trigger
-                if hasattr(self, "sound_engine"):
+                    # Coach directive & Lethal flag evaluation
+                    is_lth = bool(b1 and b1.damage_to_face >= enemy_hp and enemy_hp > 0)
                     if is_lth:
-                        self.sound_engine.notify_coach_directive("LETHAL")
+                        c_dir = "绝杀战机已现！全部战力全力走脸斩杀！"
                     elif "孤注一掷" in getattr(rec, "hypergeometric_summary", ""):
-                        self.sound_engine.notify_coach_directive("GAMBLE")
+                        c_dir = "局势落后，唯有搏命神抽直伤/关键解牌，拼脸放手一搏！"
                     elif rec.aoe_threats and any("烈焰" in t or "乱斗" in t for t in rec.aoe_threats):
-                        self.sound_engine.notify_coach_directive("AOE")
+                        c_dir = "进入敌方核心清场回合，注意克制下怪，防止一波清空！"
+                    elif getattr(rec, "draw_first_directive", ""):
+                        c_dir = getattr(rec, "draw_first_directive", "")
+                    else:
+                        c_dir = getattr(rec, "compass_directive", "") or "按费平滑出牌，稳固随从交换优势。"
+
+                    # v10 Apex: Topdeck Matrix, Multi-Turn Lookahead, Game Phase, Capsule HUD
+                    rem_deck = self.deck_tracker.get_stats().remaining_cards if hasattr(self, "deck_tracker") else []
+                    topdeck_rep = TopdeckMatrix.evaluate(
+                        remaining_cards=rem_deck,
+                        friendly_hp=friendly_hp,
+                        enemy_hp=enemy_hp,
+                        friendly_field_atk=b1.damage_to_face if b1 else 0,
+                        enemy_field_atk=getattr(rec, "enemy_board_attack", 0),
+                        available_mana=mana,
+                    )
+
+                    friendly_minions_list = [{"attack": getattr(m, "attack", 0), "health": getattr(m, "health", 0)} for m in getattr(rec, "friendly_minions", [])]
+                    enemy_minions_list = [{"attack": getattr(m, "attack", 0), "health": getattr(m, "health", 0)} for m in getattr(rec, "enemy_minions", [])]
+                    lookahead_rep = MultiTurnLookahead.evaluate_horizon(
+                        friendly_minions=friendly_minions_list,
+                        enemy_minions=enemy_minions_list,
+                        friendly_hp=friendly_hp,
+                        enemy_hp=enemy_hp,
+                        opponent_class=opp,
+                        current_turn=turn,
+                    )
+
+                    phase_state = GamePhaseMachine.evaluate(
+                        current_turn=turn,
+                        available_mana=mana,
+                        remaining_deck_count=self.deck_tracker.get_stats().total_remaining if hasattr(self, "deck_tracker") else 20,
+                        friendly_hp=friendly_hp,
+                        enemy_hp=enemy_hp,
+                    )
+
+                    miracle_top = topdeck_rep.miracle_outs[0].card_name if topdeck_rep.miracle_outs else ""
+                    miracle_prob = topdeck_rep.miracle_outs[0].draw_probability_pct if topdeck_rep.miracle_outs else 0.0
+                    capsule_data = CapsuleHUD.format_display(
+                        has_lethal=is_lth,
+                        lethal_desc=c_dir if is_lth else "",
+                        primary_action=b1.action_sequence[0] if (b1 and b1.action_sequence) else "稳健控场",
+                        winrate_pct=b1.projected_winrate if b1 else 50.0,
+                        miracle_card=miracle_top,
+                        miracle_pct=miracle_prob,
+                        is_capsule_active=getattr(self, "is_compact_mode", False),
+                    )
+
+                    # v11 Legendary: Secret Probing, Hand Age Intel, Deck Matchup Sandbox
+                    active_sec_names = []
+                    if hasattr(self, "secret_tracker"):
+                        for sec in getattr(self.secret_tracker, "active_secrets", []):
+                            if hasattr(self.secret_tracker, "get_possible_secrets"):
+                                possible = self.secret_tracker.get_possible_secrets(sec.secret_id)
+                                active_sec_names.extend([p.name for p in possible])
+                            elif hasattr(sec, "hero_class"):
+                                active_sec_names.append(sec.hero_class)
+                    secret_rep = SecretDeathrattleSimulator.evaluate_probing_order(
+                        active_secrets=active_sec_names,
+                        friendly_minions=friendly_minions_list,
+                        friendly_hand=[],
+                        friendly_hp=friendly_hp,
+                    )
+
+                    hand_age_rep = self.hand_age_intel.update_turn(turn) if hasattr(self, "hand_age_intel") else None
+                    matchup_rep = DeckMatchupSandbox.evaluate_deck(rem_deck)
+
+                    # v13 Supreme Omniscience: Neural Hand Silhouette
+                    hand_raw = [
+                        {"slot": c.slot, "hold_turns": c.hold_turns, "origin": c.origin.value}
+                        for c in getattr(hand_age_rep, "cards", [])
+                    ] if hand_age_rep else []
+                    silhouette_rep = NeuralHandSilhouette.evaluate_hand_silhouette(
+                        opponent_class=opp,
+                        hand_cards_info=hand_raw,
+                        current_turn=turn,
+                    )
+
+                    # v12 Grandmaster Co-Pilot Step Plan & Conversational Voice Streaming
+                    copilot_plan = MasterCoPilotEngine.build_step_plan(
+                        action_sequence=b1.action_sequence if b1 else (rec.checklist_steps or rec.suggested_plays),
+                        trading_plan=rec.trading_plan,
+                        had_lethal=is_lth,
+                        friendly_hp=friendly_hp,
+                        enemy_hp=enemy_hp,
+                        mana=mana,
+                        turn=turn,
+                    )
+                    MasterCoPilotEngine.get_instance().load_turn_plan(copilot_plan)
+
+                    tts_streamer = ConversationalTtsStreamer.get_instance()
+                    if hasattr(self, "sound_engine"):
+                        tts_streamer.set_speaker_func(lambda msg: self.sound_engine.speak(msg) if getattr(self.sound_engine, "tts_enabled", False) else None)
+                    tts_streamer.speak_macro_overview(copilot_plan.macro_voice_overview)
+                    active_st = copilot_plan.get_active_step()
+                    if active_st:
+                        tts_streamer.speak_step_guidance(active_st.conversational_voice)
+
+                    self.web_companion.update_state({
+                        "mode": "PLAY",
+                        "turn": turn,
+                        "mana": mana,
+                        "max_mana": max_mana,
+                        "opponent_hero": opp,
+                        "archetype": getattr(arch_report, "archetype_name", "--") if arch_report else "--",
+                        "winrate_pct": b1.projected_winrate if b1 else 50.0,
+                        "plan_a_title": b1.plan_name if b1 else "最优方案",
+                        "plan_a_steps": b1.action_sequence if b1 else (rec.checklist_steps or rec.suggested_plays),
+                        "plan_a_ev": b1.ev_score if b1 else 0.0,
+                        "plan_b_title": b2.plan_name if b2 else "",
+                        "plan_b_steps": b2.action_sequence if b2 else getattr(rec, "plan_b_steps", []),
+                        "plan_b_ev": b2.ev_score if b2 else 0.0,
+                        "blunder_alert": rec.blunder_alerts[0] if rec.blunder_alerts else "",
+                        "compass_directive": getattr(rec, "compass_directive", ""),
+                        "burst_danger": rec.opponent_burst_danger.danger_badge if (rec.opponent_burst_danger and rec.opponent_burst_danger.threat_tier in {"CRITICAL_LETHAL", "HIGH_DANGER"}) else "",
+                        "discover_guidance": f"{rec.discover_guidance.priority_badge}: {rec.discover_guidance.guidance_text}" if rec.discover_guidance else "",
+                        "variance_policy": getattr(b1, "variance_policy", "") if b1 else "",
+                        "curve_foresight": getattr(b1, "curve_foresight_text", "") if b1 else "",
+                        "positioning_advice": getattr(b1, "positioning_slot_advice", "") if b1 else "",
+                        "draw_first_directive": getattr(rec, "draw_first_directive", ""),
+                        "next_turn_threat_cards": getattr(rec, "next_turn_threat_cards", []),
+                        "lethal_cushion": getattr(rec, "lethal_cushion", ""),
+                        "rng_badge": rec.rng_report.summary_badge if (getattr(rec, "rng_report", None) and rec.rng_report.summary_badge) else "",
+                        "personal_habit_reminder": getattr(rec, "personal_weakness_reminder", ""),
+                        "ghost_board_summary": self.board_tactical_overlay.get_ghost_board_summary() if hasattr(self, "board_tactical_overlay") else "",
+                        "negative_deductions": self.hand_tracker.get_negative_deductions() if hasattr(self, "hand_tracker") else [],
+                        "resilience_badge": getattr(b1, "resilience_badge", "") if b1 else "",
+                        "resilience_verdict": getattr(rec, "resilience_verdict", ""),
+                        "hypergeometric_gamble": getattr(rec, "hypergeometric_summary", ""),
+                        "tilt_status": getattr(rec, "tilt_summary", ""),
+                        "mind_reading_summary": mind_dossier,
+                        "decision_tree_ascii": tree_ascii,
+                        "coach_directive": c_dir,
+                        "is_lethal": is_lth,
+                        "topdeck_summary": topdeck_rep.summary_markdown,
+                        "topdeck_matrix": topdeck_rep.to_dict(),
+                        "lookahead_summary": lookahead_rep.summary_markdown,
+                        "lookahead_table": lookahead_rep.forecast_table_ascii,
+                        "game_phase": phase_state.phase.value,
+                        "game_phase_zh": phase_state.phase_name_zh,
+                        "game_phase_weights": {
+                            "tempo": phase_state.tempo_weight,
+                            "card_advantage": phase_state.card_advantage_weight,
+                            "face_pressure": phase_state.face_pressure_weight,
+                            "survival": phase_state.survival_weight,
+                        },
+                        "capsule_summary": capsule_data.status_summary_line,
+                        "secrets_summary": secret_rep.summary_markdown,
+                        "hand_age_summary": hand_age_rep.summary_markdown if hand_age_rep else "",
+                        "matchup_sandbox": matchup_rep.to_dict(),
+                        "copilot_plan": copilot_plan.to_dict(),
+                        "hand_silhouette": silhouette_rep.to_dict(),
+                    })
+
+                    # Coach voice commentary trigger
+                    if hasattr(self, "sound_engine"):
+                        if is_lth:
+                            self.sound_engine.notify_coach_directive("LETHAL")
+                        elif "孤注一掷" in getattr(rec, "hypergeometric_summary", ""):
+                            self.sound_engine.notify_coach_directive("GAMBLE")
+                        elif rec.aoe_threats and any("烈焰" in t or "乱斗" in t for t in rec.aoe_threats):
+                            self.sound_engine.notify_coach_directive("AOE")
+            except Exception as sec_ex:
+                logger.debug(f"Secondary intelligence update suppressed: {sec_ex}")
 
             # 6. Render trading & mana planning with optimal trades, face pivot & positioning
             trade_text_parts = []
@@ -2730,85 +2899,7 @@ class OverlayWindow(QMainWindow):
                         risk_lines.append(f"• {at}")
             self.play_risk_lbl.setText(format_tactical_text("\n".join(risk_lines)))
 
-            # 7. Check Real-Time Lethal
-            friendly_board_objs = payload.get("friendly_board_objs", [])
-            if not friendly_board_objs and friendly:
-                # Fallback: synthesize friendly minion list from string representation
-                for item in friendly:
-                    atk_val = 2
-                    if "(" in str(item) and "/" in str(item):
-                        try:
-                            atk_val = int(str(item).split("(")[1].split("/")[0])
-                        except Exception:
-                            atk_val = 2
-                    friendly_board_objs.append({"name": str(item), "atk": atk_val, "can_attack": True, "windfury": False})
-
-            enemy_taunts = payload.get("enemy_taunt_objs", [])
-            enemy_hp = payload.get("enemy_hp", 30)
-            enemy_armor = payload.get("enemy_armor", 0)
-
-            lethal_res: LethalResult = self.lethal_calculator.calculate_lethal(
-                friendly_minions=friendly_board_objs,
-                enemy_taunts=enemy_taunts,
-                hand_cards=hand,
-                available_mana=mana,
-                enemy_hp=enemy_hp,
-                enemy_armor=enemy_armor,
-                hero_class=payload.get("friendly_hero", "MAGE"),
-                hero_power_available=payload.get("hero_power_available", True),
-            )
-
-            if lethal_res.is_lethal:
-                self.lethal_frame.show()
-                self.lethal_title_lbl.setText("⚡ 斩杀警报 (LETHAL DETECTED)!")
-                self.lethal_frame.setStyleSheet("""
-                    QFrame#lethalFrame {
-                        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(180, 83, 9, 0.9), stop:1 rgba(220, 38, 38, 0.9));
-                        border: 1px solid #f59e0b;
-                        border-radius: 8px;
-                    }
-                    QLabel { background: transparent; border: none; padding: 0px; }
-                """)
-                self.lethal_detail_lbl.setText(
-                    f"可造成 {lethal_res.total_damage} 点斩杀伤害 (敌方血量 {lethal_res.target_hp}，溢出 {lethal_res.overkill} 点)！"
-                )
-                self.lethal_steps_lbl.setText("斩杀步骤:\n" + "\n".join(f"• {s}" for s in lethal_res.action_steps))
-                self.sound_engine.notify_lethal(damage=lethal_res.total_damage)
-            elif getattr(rec, "two_turn_lethal_advice", ""):
-                self.lethal_frame.show()
-                self.lethal_title_lbl.setText("⚔️ 两回合将死推演 (Two-Turn Lethal)")
-                self.lethal_frame.setStyleSheet("""
-                    QFrame#lethalFrame {
-                        background: rgba(120, 53, 15, 0.85);
-                        border: 1px solid #d97706;
-                        border-radius: 8px;
-                    }
-                    QLabel { background: transparent; border: none; padding: 0px; }
-                """)
-                self.lethal_detail_lbl.setText(rec.two_turn_lethal_advice)
-                self.lethal_steps_lbl.setText("💡 两回合将死推演：全员走脸控血，敌方下回合无解场必崩盘！")
-                self.sound_engine.notify_two_turn_lethal()
-            elif rec.opponent_burst_danger and rec.opponent_burst_danger.threat_tier == "CRITICAL_LETHAL":
-                self.lethal_frame.show()
-                self.lethal_title_lbl.setText("🚨 敌方绝杀警报！下回合面临死亡威胁！")
-                self.lethal_frame.setStyleSheet("""
-                    QFrame#lethalFrame {
-                        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(127, 29, 29, 0.95), stop:1 rgba(153, 27, 27, 0.95));
-                        border: 2px solid #ef4444;
-                        border-radius: 8px;
-                    }
-                    QLabel { background: transparent; border: none; padding: 0px; }
-                """)
-                self.lethal_detail_lbl.setText(rec.opponent_burst_danger.survival_directive)
-                self.lethal_steps_lbl.setText(
-                    f"敌方场攻: {rec.opponent_burst_danger.opponent_field_atk} | 空场直伤: ~{rec.opponent_burst_danger.empty_board_burst} | 总斩杀: {rec.opponent_burst_danger.total_projected_damage} 点 (溢出 {rec.opponent_burst_danger.lethal_deficit} 点)\n"
-                    f"👉 生存法则: 必须优先解掉敌方高攻随从，或打出嘲讽/叠甲抬血！"
-                )
-                self.sound_engine.notify_opponent_lethal_threat(rec.opponent_burst_danger.lethal_deficit)
-            else:
-                self.lethal_frame.hide()
-
-            # Update compact capsule mode display
+            # 8. Update compact capsule mode display
             top_action = rec.suggested_plays[0] if rec.suggested_plays else "观察局势"
             b1_ev = f"EV:+{rec.best_branch.ev_score:.1f}" if rec.best_branch else ""
             if lethal_res.is_lethal:
@@ -2817,7 +2908,7 @@ class OverlayWindow(QMainWindow):
                 ev_str = f" | {b1_ev}" if b1_ev else ""
                 self.compact_status_lbl.setText(f"⚡ T{turn} 💎{mana}{ev_str} | 💡 {top_action[:20]}")
 
-            # Update In-game Board Tactical Projection (Arrows, Badges & Placement)
+            # 9. Update In-game Board Tactical Projection (Arrows, Badges & Placement)
             if hasattr(self, "board_overlay") and self.board_overlay._enabled:
                 win_rect = self.window_finder.find_window()
                 self.board_overlay.sync_to_window(win_rect)
@@ -2990,6 +3081,32 @@ class OverlayWindow(QMainWindow):
             logger.error(f"Error evaluating play turn: {e}", exc_info=True)
             self.play_actions_lbl.setText(f"出牌推演异常: {e}")
 
+    def _switch_intel_tab(self, tab: str) -> None:
+        """Toggles between Deck Tracker, Hand Reading, and Coin/Compass in the tactical drawer."""
+        current_tab = getattr(self, "_active_intel_tab", "DECK")
+        if current_tab == tab and getattr(self, "_intel_expanded", True):
+            self.deck_frame.hide()
+            self.hand_frame.hide()
+            self.coin_frame.hide()
+            self._intel_expanded = False
+            for btn in (self.tab_deck_btn, self.tab_hand_btn, self.tab_coin_btn):
+                btn.setStyleSheet("background: rgba(255, 255, 255, 0.04); color: #94a3b8; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.08);")
+            return
+
+        self._intel_expanded = True
+        self._active_intel_tab = tab
+
+        active_btn_qss = "background: rgba(14, 165, 233, 0.18); color: #38bdf8; font-size: 10px; font-weight: bold; padding: 3px 8px; border-radius: 4px; border: 1px solid #0284c7;"
+        inactive_btn_qss = "background: rgba(255, 255, 255, 0.04); color: #94a3b8; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.08);"
+
+        self.tab_deck_btn.setStyleSheet(active_btn_qss if tab == "DECK" else inactive_btn_qss)
+        self.tab_hand_btn.setStyleSheet(active_btn_qss if tab == "HAND" else inactive_btn_qss)
+        self.tab_coin_btn.setStyleSheet(active_btn_qss if tab == "COIN" else inactive_btn_qss)
+
+        self.deck_frame.setVisible(tab == "DECK")
+        self.hand_frame.setVisible(tab == "HAND")
+        self.coin_frame.setVisible(tab == "COIN")
+
     def _switch_plan_view(self, plan: str) -> None:
         self._current_selected_plan = plan
         self._render_tactical_plan_checklist()
@@ -3046,28 +3163,32 @@ class OverlayWindow(QMainWindow):
         if rec.alt_branch:
             self.plan_b_btn.show()
             if selected_plan == "A":
-                self.plan_a_btn.setStyleSheet("background: #d97706; color: #ffffff; border: 1px solid #f59e0b; padding: 2px 8px; border-radius: 9px; font-weight: bold; font-size: 10px;")
-                self.plan_b_btn.setStyleSheet("background: rgba(41, 37, 36, 180); color: #94a3b8; border: 1px solid #44403c; padding: 2px 8px; border-radius: 9px; font-size: 10px;")
+                self.plan_a_btn.setStyleSheet("background: #0284c7; color: #ffffff; border: 1px solid #38bdf8; padding: 2px 10px; border-radius: 9px; font-weight: bold; font-size: 10px;")
+                self.plan_b_btn.setStyleSheet("background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.1); padding: 2px 10px; border-radius: 9px; font-size: 10px;")
             else:
-                self.plan_a_btn.setStyleSheet("background: rgba(41, 37, 36, 180); color: #94a3b8; border: 1px solid #44403c; padding: 2px 8px; border-radius: 9px; font-size: 10px;")
-                self.plan_b_btn.setStyleSheet("background: #0284c7; color: #ffffff; border: 1px solid #38bdf8; padding: 2px 8px; border-radius: 9px; font-weight: bold; font-size: 10px;")
+                self.plan_a_btn.setStyleSheet("background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.1); padding: 2px 10px; border-radius: 9px; font-size: 10px;")
+                self.plan_b_btn.setStyleSheet("background: #0284c7; color: #ffffff; border: 1px solid #38bdf8; padding: 2px 10px; border-radius: 9px; font-weight: bold; font-size: 10px;")
         else:
             self.plan_b_btn.hide()
-            self.plan_a_btn.setStyleSheet("background: #d97706; color: #ffffff; border: 1px solid #f59e0b; padding: 2px 8px; border-radius: 9px; font-weight: bold; font-size: 10px;")
+            self.plan_a_btn.setStyleSheet("background: #0284c7; color: #ffffff; border: 1px solid #38bdf8; padding: 2px 10px; border-radius: 9px; font-weight: bold; font-size: 10px;")
 
         # Render Outcome line
         if branch:
             res_str = f" | {branch.resilience_badge}" if getattr(branch, "resilience_badge", "") else ""
             self.plan_outcome_lbl.setText(
                 f"胜率: <b style='color: #38bdf8;'>{branch.projected_winrate}%</b> | "
-                f"EV: <b style='color: #4ade80;'>+{branch.ev_score:.1f}</b>{res_str} | "
+                f"EV: <b style='color: #34d399;'>+{branch.ev_score:.1f}</b>{res_str} | "
                 f"消耗 <b>{branch.mana_spent}</b> 费 | 抢脸 <b>{branch.damage_to_face}</b> 伤 | 场攻 <b>{branch.projected_board_attack}</b>"
             )
             self.plan_outcome_lbl.show()
-            steps = branch.action_sequence or ["稳固场面"]
+            steps = list(branch.action_sequence) if branch.action_sequence else ["稳固场面"]
         else:
             self.plan_outcome_lbl.hide()
-            steps = rec.checklist_steps or rec.play_sequence or rec.suggested_plays or ["稳固场面"]
+            steps = list(rec.checklist_steps or rec.play_sequence or rec.suggested_plays or ["稳固场面"])
+
+        # If Draw First directive exists and not yet in steps, prepend it
+        if getattr(rec, "draw_first_directive", "") and not any("抽牌" in s or "过牌" in s for s in steps):
+            steps.insert(0, f"先过牌: {rec.draw_first_directive}")
 
         # If Rope Emergency Mode, render compressed punchlist
         if is_rope:
@@ -3084,16 +3205,18 @@ class OverlayWindow(QMainWindow):
 
         for idx, step in enumerate(steps):
             if idx in completed_indices:
-                checklist_lines.append(f"<span style='color: #64748b; text-decoration: line-through;'>☑️ <s>第{idx+1}步: {step}</s></span>")
+                checklist_lines.append(f"<span style='color: #475569; text-decoration: line-through;'>☑️ <s>第{idx+1}步: {step}</s></span>")
             elif not found_next:
                 found_next = True
-                checklist_lines.append(f"<b style='color: #fbbf24; font-size: 11px;'>👉 [ ] 第{idx+1}步: {step}</b>")
+                checklist_lines.append(f"<div style='background: rgba(14, 165, 233, 0.12); border-left: 2.5px solid #38bdf8; padding: 3px 6px; border-radius: 4px;'><b style='color: #38bdf8;'>👉 第{idx+1}步:</b> <b style='color: #f8fafc;'>{step}</b></div>")
             else:
-                checklist_lines.append(f"&nbsp;&nbsp;&nbsp;&nbsp;<span style='color: #e2e8f0;'>[ ] 第{idx+1}步: {step}</span>")
+                checklist_lines.append(f"&nbsp;&nbsp;&nbsp;&nbsp;<span style='color: #cbd5e1;'>[ ] 第{idx+1}步: {step}</span>")
 
         # Extra tactical tips from branch
         extra_tips = []
         if branch:
+            if getattr(branch, "tactical_intent", ""):
+                extra_tips.append(f"💡 <b>总纲:</b> {branch.tactical_intent}")
             if getattr(branch, "positioning_slot_advice", ""):
                 extra_tips.append(f"📐 <b>站位:</b> {branch.positioning_slot_advice}")
             if getattr(branch, "curve_foresight_text", ""):
@@ -4353,19 +4476,29 @@ class OverlayWindow(QMainWindow):
             has_coin=True,
         )
 
-        lines = [advice.game_plan, ""]
+        lines = [f"<div style='margin-bottom: 6px;'><b>对战战略:</b> <span style='color: #38bdf8;'>{advice.game_plan}</span></div>"]
         for c in advice.choices:
-            tag = "✅ 【必留】" if c.action == "KEEP" else "❌ 【换掉】"
-            lines.append(f"{tag} {c.card.name} ({c.card.cost}费): {c.reason}")
+            if c.action == "KEEP":
+                lines.append(
+                    f"<div style='background: rgba(16, 185, 129, 0.12); border-left: 3px solid #10b981; padding: 4px 8px; border-radius: 4px; margin-bottom: 4px;'>"
+                    f"<b style='color: #34d399;'>🟢 【必留】</b> <b style='color: #f8fafc;'>{c.card.name}</b> ({c.card.cost}费) · "
+                    f"<span style='color: #cbd5e1;'>{c.reason}</span></div>"
+                )
+            else:
+                lines.append(
+                    f"<div style='background: rgba(239, 68, 68, 0.10); border-left: 3px solid #ef4444; padding: 4px 8px; border-radius: 4px; margin-bottom: 4px;'>"
+                    f"<b style='color: #f87171;'>🔴 【换掉】</b> <b style='color: #f8fafc;'>{c.card.name}</b> ({c.card.cost}费) · "
+                    f"<span style='color: #94a3b8;'>{c.reason}</span></div>"
+                )
 
-        self.mulligan_lbl.setText("\n".join(lines))
+        self.mulligan_lbl.setText("".join(lines))
         self.mulligan_coin_badge.setText("后手 (握幸运币)")
         self.mulligan_frame.show()
 
         # Switch to play container
         self._switch_to_play_view()
         self.mode_badge.setText("起手留牌")
-        self._on_status_updated("已生成起手留牌策略指南")
+        self._on_status_updated("已生成起手留牌决胜座舱指南")
 
     def cycle_theme(self) -> None:
         """Cycles between themes in THEMES and syncs with PrismaticThemeEngine."""

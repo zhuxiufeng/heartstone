@@ -128,6 +128,11 @@ class ManaCurveWidget(QFrame):
 
         main_layout.addLayout(bars_layout)
 
+        # Deck Health Radar line (First-Principles Draft Panorama)
+        self.deck_health_lbl = QLabel("套牌全景: 等待选牌 · 曲线健康度 100%", self)
+        self.deck_health_lbl.setStyleSheet("color: #38bdf8; font-size: 10px; font-weight: 600; padding-top: 2px;")
+        main_layout.addWidget(self.deck_health_lbl)
+
     def update_curve(self, curve: List[int], total_cards: int = 0) -> None:
         """Update all 8 bar heights and total card count."""
         max_in_curve = max(curve) if curve else 1
@@ -136,3 +141,8 @@ class ManaCurveWidget(QFrame):
             bar.set_count(val, max_in_curve)
 
         self.total_cards_lbl.setText(f"已抓: {total_cards}/30")
+
+    def update_deck_health(self, archetype: str = "中速均衡", health_pct: int = 100, notice: str = "") -> None:
+        """Update draft deck health and archetype panorama line."""
+        notice_str = f" · {notice}" if notice else ""
+        self.deck_health_lbl.setText(f"套牌全景: {archetype} (健康度 {health_pct}%){notice_str}")
