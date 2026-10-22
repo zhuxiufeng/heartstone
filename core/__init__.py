@@ -80,6 +80,12 @@ from .flow_tilt_guardian import FlowTiltGuardian, FlowTiltStatus, TiltRiskTier
 from .hover_intent_radar import HoverIntentRadar, OpponentIntentAlert, SubconsciousIntent
 from .auto_highlight_reel import AutoHighlightReel, HighlightReelPackage, HighlightClimaxType, StoryboardFrame
 from .battlegrounds_mode_reactor import BattlegroundsModeReactor, BGsReactorReport, BGsCompType, TavernUpgradeEV, CombatSimulationResult
+from .council_of_champions import CouncilOfChampions, CouncilDebateReport, ChampionPersona, DebateVerdict, ChampionAdvise
+from .gaze_attention_tracker import GazeAttentionTracker, GazeTrackingReport, ScreenRegion, RegionAttentionData
+from .persona_voice_matrix import PersonaVoiceMatrix, PersonaMatrixResponse, VoicePersona
+from .acoustic_emotion_guard import AcousticEmotionGuard, AcousticEmotionReport, AcousticState
+from .genetic_deck_architect import GeneticDeckArchitect, SynthesizedDeck
+from .universal_tcg_theory import UniversalTcgTheoryEngine, UniversalTheoryReport, TCGAxiomType
 
 __all__ = [
     "ConfigManager",
@@ -278,4 +284,24 @@ __all__ = [
     "BGsCompType",
     "TavernUpgradeEV",
     "CombatSimulationResult",
+    "CouncilOfChampions",
+    "CouncilDebateReport",
+    "ChampionPersona",
+    "DebateVerdict",
+    "ChampionAdvise",
+    "GazeAttentionTracker",
+    "GazeTrackingReport",
+    "ScreenRegion",
+    "RegionAttentionData",
+    "PersonaVoiceMatrix",
+    "PersonaMatrixResponse",
+    "VoicePersona",
+    "AcousticEmotionGuard",
+    "AcousticEmotionReport",
+    "AcousticState",
+    "GeneticDeckArchitect",
+    "SynthesizedDeck",
+    "UniversalTcgTheoryEngine",
+    "UniversalTheoryReport",
+    "TCGAxiomType",
 ]

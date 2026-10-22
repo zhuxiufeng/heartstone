@@ -1378,6 +1378,152 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
                 },
                 "summary_markdown": rep.summary_markdown,
             }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/council/debate":
+            from .council_of_champions import CouncilOfChampions
+            rep = CouncilOfChampions.convene_council(
+                player_hp=int(data.get("player_hp", 20)),
+                enemy_hp=int(data.get("enemy_hp", 20)),
+                board_total_attack=int(data.get("board_total_attack", 6)),
+                enemy_threat_level=data.get("enemy_threat_level", "MODERATE"),
+                winrate_pct=float(data.get("winrate_pct", 50.0)),
+                has_hand_burst=bool(data.get("has_hand_burst", False)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "verdict": rep.verdict.value,
+                "verdict_label": rep.verdict_label,
+                "final_recommended_action": rep.final_recommended_action,
+                "council_consensus_score": rep.council_consensus_score,
+                "debate_conflict_focus": rep.debate_conflict_focus,
+                "opinions": [
+                    {
+                        "persona": o.persona.value,
+                        "persona_title": o.persona_title,
+                        "recommended_line": o.recommended_line,
+                        "action_type": o.action_type,
+                        "confidence_score": o.confidence_score,
+                        "argument": o.argument,
+                    } for o in rep.opinions
+                ],
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/gaze/attention":
+            from .gaze_attention_tracker import GazeAttentionTracker
+            rep = GazeAttentionTracker.evaluate_gaze_distribution(
+                gaze_samples=data.get("gaze_samples", []),
+                enemy_has_secrets=bool(data.get("enemy_has_secrets", False)),
+                enemy_has_taunt_or_poison=bool(data.get("enemy_has_taunt", False)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "active_blindspot_alert": rep.active_blindspot_alert,
+                "primary_focus_region": rep.primary_focus_region.value,
+                "focus_stability_score": rep.focus_stability_score,
+                "speech_warning": rep.speech_warning,
+                "regions": {
+                    k: {
+                        "region_label": v.region_label,
+                        "attention_pct": v.attention_pct,
+                        "seconds_unattended": v.seconds_unattended,
+                        "is_blindspot_alert": v.is_blindspot_alert,
+                    } for k, v in rep.regions.items()
+                },
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/persona/speak":
+            from .persona_voice_matrix import PersonaVoiceMatrix, VoicePersona
+            p_str = data.get("persona", "PRO_COACH")
+            persona = VoicePersona(p_str) if p_str in VoicePersona._value2member_map_ else VoicePersona.PRO_COACH
+            res = PersonaVoiceMatrix.render_voice(
+                scenario=data.get("scenario", "GENERAL_STEP"),
+                context=data.get("context", {}),
+                preferred_persona=persona,
+                is_player_tilted=bool(data.get("is_tilted", False)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "active_persona": res.active_persona.value,
+                "persona_title": res.persona_title,
+                "spoken_line": res.spoken_line,
+                "audio_pitch_shift": res.audio_pitch_shift,
+                "audio_speed_rate": res.audio_speed_rate,
+                "all_persona_lines": res.all_persona_lines,
+                "auto_switched_due_to_tilt": res.auto_switched_due_to_tilt,
+                "summary_markdown": res.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/acoustic/emotion":
+            from .acoustic_emotion_guard import AcousticEmotionGuard
+            rep = AcousticEmotionGuard.analyze_voice_telemetry(
+                pitch_jitter=float(data.get("pitch_jitter", 0.05)),
+                sigh_detected=bool(data.get("sigh_detected", False)),
+                speech_wpm=float(data.get("speech_wpm", 120.0)),
+                peak_volume_db=float(data.get("peak_volume_db", -20.0)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "frustration_index": rep.frustration_index,
+                "state": rep.state.value,
+                "state_label": rep.state_label,
+                "comfort_response": rep.comfort_response,
+                "action_protocol": rep.action_protocol,
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/deck/synthesize":
+            from .genetic_deck_architect import GeneticDeckArchitect
+            deck = GeneticDeckArchitect.synthesize_counter_deck(
+                target_class=data.get("target_class", "Priest"),
+                climate_type=data.get("climate_type", "AGGRO_OVERLOAD"),
+                generations=int(data.get("generations", 30)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "deck_name": deck.deck_name,
+                "target_class": deck.target_class,
+                "counter_archetype": deck.counter_archetype,
+                "fitness_score": deck.fitness_score,
+                "deckstring": deck.deckstring,
+                "mana_curve": deck.mana_curve,
+                "summary_markdown": deck.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/tcg/philosophy":
+            from .universal_tcg_theory import UniversalTcgTheoryEngine
+            rep = UniversalTcgTheoryEngine.evaluate_board_philosophy(
+                player_hp=int(data.get("player_hp", 20)),
+                enemy_hp=int(data.get("enemy_hp", 20)),
+                my_board_mana_value=int(data.get("my_board_mana", 8)),
+                enemy_board_mana_value=int(data.get("enemy_board_mana", 6)),
+                my_hand_count=int(data.get("my_hand_count", 4)),
+                enemy_hand_count=int(data.get("enemy_hand_count", 3)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "dominant_axiom": rep.dominant_axiom.value,
+                "axiom_title": rep.axiom_title,
+                "origin_game": rep.origin_game,
+                "tempo_vs_value_balance": rep.tempo_vs_value_balance,
+                "life_as_fuel_efficiency": rep.life_as_fuel_efficiency,
+                "philosophical_doctrine": rep.philosophical_doctrine,
+                "tactical_execution_directive": rep.tactical_execution_directive,
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
@@ -1636,6 +1782,69 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
                 "active_comp": rep.active_comp.value,
                 "comp_label": rep.comp_label,
                 "upgrade_recommendation": rep.upgrade_eval.recommendation_label,
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/council/debate":
+            from .council_of_champions import CouncilOfChampions
+            rep = CouncilOfChampions.convene_council(player_hp=20, enemy_hp=20, board_total_attack=6)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "verdict": rep.verdict.value,
+                "verdict_label": rep.verdict_label,
+                "final_recommended_action": rep.final_recommended_action,
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/gaze/attention":
+            from .gaze_attention_tracker import GazeAttentionTracker
+            rep = GazeAttentionTracker.evaluate_gaze_distribution()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "active_blindspot_alert": rep.active_blindspot_alert,
+                "primary_focus_region": rep.primary_focus_region.value,
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/persona/speak":
+            from .persona_voice_matrix import PersonaVoiceMatrix
+            res = PersonaVoiceMatrix.render_voice()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "active_persona": res.active_persona.value,
+                "persona_title": res.persona_title,
+                "spoken_line": res.spoken_line,
+                "summary_markdown": res.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/acoustic/emotion":
+            from .acoustic_emotion_guard import AcousticEmotionGuard
+            rep = AcousticEmotionGuard.analyze_voice_telemetry()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "frustration_index": rep.frustration_index,
+                "state": rep.state.value,
+                "state_label": rep.state_label,
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/tcg/philosophy":
+            from .universal_tcg_theory import UniversalTcgTheoryEngine
+            rep = UniversalTcgTheoryEngine.evaluate_board_philosophy(player_hp=20, enemy_hp=20, my_board_mana_value=8, enemy_board_mana_value=6, my_hand_count=4, enemy_hand_count=3)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "dominant_axiom": rep.dominant_axiom.value,
+                "axiom_title": rep.axiom_title,
                 "summary_markdown": rep.summary_markdown,
             }, ensure_ascii=False).encode("utf-8"))
         else:

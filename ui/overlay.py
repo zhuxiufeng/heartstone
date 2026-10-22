@@ -112,6 +112,12 @@ try:
     from core.hover_intent_radar import HoverIntentRadar
     from core.auto_highlight_reel import AutoHighlightReel
     from core.battlegrounds_mode_reactor import BattlegroundsModeReactor
+    from core.council_of_champions import CouncilOfChampions
+    from core.gaze_attention_tracker import GazeAttentionTracker
+    from core.persona_voice_matrix import PersonaVoiceMatrix, VoicePersona
+    from core.acoustic_emotion_guard import AcousticEmotionGuard
+    from core.genetic_deck_architect import GeneticDeckArchitect
+    from core.universal_tcg_theory import UniversalTcgTheoryEngine
 except (ImportError, ValueError):
     from ..core.ai_engine import (
         AiEngine,
@@ -183,6 +189,12 @@ except (ImportError, ValueError):
     from ..core.hover_intent_radar import HoverIntentRadar
     from ..core.auto_highlight_reel import AutoHighlightReel
     from ..core.battlegrounds_mode_reactor import BattlegroundsModeReactor
+    from ..core.council_of_champions import CouncilOfChampions
+    from ..core.gaze_attention_tracker import GazeAttentionTracker
+    from ..core.persona_voice_matrix import PersonaVoiceMatrix, VoicePersona
+    from ..core.acoustic_emotion_guard import AcousticEmotionGuard
+    from ..core.genetic_deck_architect import GeneticDeckArchitect
+    from ..core.universal_tcg_theory import UniversalTcgTheoryEngine
 from .card_tooltip import CardTooltip
 from .inplace_hud import InPlaceHudManager
 from .board_overlay import BoardTacticalOverlay
