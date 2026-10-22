@@ -1215,6 +1215,169 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
                 "tactical_action_ref": ans.tactical_action_ref,
                 "confidence_score": ans.confidence_score,
             }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/climate/meta":
+            from .micro_meta_climate import MicroMetaClimateRadar
+            matches = data.get("matches", [])
+            rep = MicroMetaClimateRadar.analyze_recent_meta(matches)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "climate_type": rep.climate_type.value,
+                "climate_label": rep.climate_label,
+                "sample_match_count": rep.sample_match_count,
+                "aggro_ratio_pct": rep.aggro_ratio_pct,
+                "control_ratio_pct": rep.control_ratio_pct,
+                "combo_ratio_pct": rep.combo_ratio_pct,
+                "dominant_class": rep.dominant_class,
+                "multipliers": {
+                    "anti_aggro_removal": rep.multipliers.anti_aggro_removal,
+                    "early_taunt_survival": rep.multipliers.early_taunt_survival,
+                    "greed_value_generation": rep.multipliers.greed_value_generation,
+                    "burst_finishers": rep.multipliers.burst_finishers,
+                },
+                "mulligan_adjustment_advice": rep.mulligan_adjustment_advice,
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/secret/causal_tree":
+            from .secret_causal_forest import SecretCausalForest
+            seq = SecretCausalForest.calculate_optimal_probes(
+                active_secret_count=int(data.get("active_secret_count", 2)),
+                opponent_class=data.get("opponent_class", "Mage"),
+                friendly_board=data.get("friendly_board", []),
+                friendly_hand=data.get("friendly_hand", []),
+                available_mana=int(data.get("available_mana", 5)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "total_expected_loss": seq.total_expected_loss,
+                "safest_line_description": seq.safest_line_description,
+                "deadlock_detected": seq.deadlock_detected,
+                "summary_markdown": seq.summary_markdown,
+                "steps": [
+                    {
+                        "step_order": s.step_order,
+                        "probe_type": s.probe_type.value,
+                        "card_or_source_name": s.card_or_source_name,
+                        "target_description": s.target_description,
+                        "targeted_secrets": s.targeted_secrets,
+                        "loss_ev_score": s.loss_ev_score,
+                        "rationale": s.rationale,
+                    } for s in seq.steps
+                ]
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/flow/tilt":
+            from .flow_tilt_guardian import FlowTiltGuardian
+            res = FlowTiltGuardian.evaluate_player_state(
+                loss_streak=int(data.get("loss_streak", 0)),
+                avg_turn_sec=float(data.get("avg_turn_sec", 25.0)),
+                click_jitter_apm=float(data.get("click_jitter_apm", 80.0)),
+                consecutive_matches=int(data.get("consecutive_matches", 1)),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "flow_score": res.flow_score,
+                "tilt_tier": res.tilt_tier.value,
+                "tier_label": res.tier_label,
+                "is_intervention_needed": res.is_intervention_needed,
+                "recommended_cooldown_sec": res.recommended_cooldown_sec,
+                "spoken_comfort_line": res.spoken_comfort_line,
+                "tactical_guidance": res.tactical_guidance,
+                "summary_markdown": res.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/hover/intent":
+            from .hover_intent_radar import HoverIntentRadar
+            alert = HoverIntentRadar.analyze_hover_telemetry(
+                hover_events=data.get("hover_events", []),
+                player_health=int(data.get("player_health", 20)),
+                friendly_board=data.get("friendly_board", []),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "intent": alert.intent.value,
+                "intent_label": alert.intent_label,
+                "threat_tier": alert.threat_tier,
+                "confidence_pct": alert.confidence_pct,
+                "target_entity": alert.target_entity,
+                "warning_spoken_line": alert.warning_spoken_line,
+                "defensive_countermeasure": alert.defensive_countermeasure,
+                "summary_markdown": alert.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/highlight/reel":
+            from .auto_highlight_reel import AutoHighlightReel
+            pkg = AutoHighlightReel.generate_highlight_reel(
+                match_id=str(data.get("match_id", "current_match")),
+                turn_snapshots=data.get("turn_snapshots", []),
+                match_result=str(data.get("match_result", "VICTORY")),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "climax_type": pkg.climax_type.value,
+                "title": pkg.title,
+                "climax_turn": pkg.climax_turn,
+                "drama_score": pkg.drama_score,
+                "total_duration_sec": pkg.total_duration_sec,
+                "export_filename": pkg.export_filename,
+                "summary_markdown": pkg.summary_markdown,
+                "storyboard": [
+                    {
+                        "start_sec": f.start_sec,
+                        "end_sec": f.end_sec,
+                        "camera_scene": f.camera_scene,
+                        "lower_third_caption": f.lower_third_caption,
+                        "voiceover_script": f.voiceover_script,
+                        "sound_effect_cue": f.sound_effect_cue,
+                    } for f in pkg.storyboard
+                ]
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/bgs/reactor":
+            from .battlegrounds_mode_reactor import BattlegroundsModeReactor
+            rep = BattlegroundsModeReactor.evaluate_tavern_turn(
+                current_tier=int(data.get("current_tier", 3)),
+                upgrade_cost=int(data.get("upgrade_cost", 6)),
+                available_gold=int(data.get("available_gold", 7)),
+                hero_health=int(data.get("hero_health", 28)),
+                board_minions=data.get("board_minions", []),
+                tavern_minions=data.get("tavern_minions", []),
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "active_comp": rep.active_comp.value,
+                "comp_label": rep.comp_label,
+                "comp_tier_rank": rep.comp_tier_rank,
+                "upgrade_eval": {
+                    "current_tier": rep.upgrade_eval.current_tier,
+                    "upgrade_cost": rep.upgrade_eval.upgrade_cost,
+                    "should_upgrade_now": rep.upgrade_eval.should_upgrade_now,
+                    "tempo_loss_hp_estimate": rep.upgrade_eval.tempo_loss_hp_estimate,
+                    "recommendation_label": rep.upgrade_eval.recommendation_label,
+                    "detailed_logic": rep.upgrade_eval.detailed_logic,
+                },
+                "combat_sim": {
+                    "win_pct": rep.combat_sim.win_pct,
+                    "tie_pct": rep.combat_sim.tie_pct,
+                    "loss_pct": rep.combat_sim.loss_pct,
+                    "expected_damage_taken": rep.combat_sim.expected_damage_taken,
+                    "positioning_advice": rep.combat_sim.positioning_advice,
+                },
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
@@ -1437,6 +1600,44 @@ class WebCompanionHandler(BaseHTTPRequestHandler):
                     "coaching_rule": b.coaching_rule,
                 } for b in blindspots
             ], ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/climate/meta":
+            from .micro_meta_climate import MicroMetaClimateRadar
+            rep = MicroMetaClimateRadar.analyze_recent_meta()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "climate_type": rep.climate_type.value,
+                "climate_label": rep.climate_label,
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/flow/tilt":
+            from .flow_tilt_guardian import FlowTiltGuardian
+            res = FlowTiltGuardian.evaluate_player_state()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "flow_score": res.flow_score,
+                "tilt_tier": res.tilt_tier.value,
+                "tier_label": res.tier_label,
+                "summary_markdown": res.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
+        elif self.path == "/api/bgs/reactor":
+            from .battlegrounds_mode_reactor import BattlegroundsModeReactor
+            rep = BattlegroundsModeReactor.evaluate_tavern_turn(current_tier=3, upgrade_cost=6, available_gold=7, hero_health=30)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "active_comp": rep.active_comp.value,
+                "comp_label": rep.comp_label,
+                "upgrade_recommendation": rep.upgrade_eval.recommendation_label,
+                "summary_markdown": rep.summary_markdown,
+            }, ensure_ascii=False).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()

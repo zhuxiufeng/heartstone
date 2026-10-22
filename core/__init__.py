@@ -74,6 +74,12 @@ from .miracle_inversion_engine import MiracleInversionEngine, MiracleGamblePath,
 from .self_evolving_reinforcement import SelfEvolvingReinforcement, CardEvolvingWeight, PersonalBlindspot
 from .fatigue_endgame_horizon import FatigueEndgameHorizon, FatigueEndgameReport, EndgameVerdict, ResourcePool
 from .interactive_voice_brain import InteractiveVoiceBrain, VoiceBrainResponse, VoiceIntent
+from .micro_meta_climate import MicroMetaClimateRadar, MicroMetaReport, MetaClimateType, ClimateDriftMultipliers
+from .secret_causal_forest import SecretCausalForest, OptimalProbeSequence, SecretProbeStep, ProbeActionType
+from .flow_tilt_guardian import FlowTiltGuardian, FlowTiltStatus, TiltRiskTier
+from .hover_intent_radar import HoverIntentRadar, OpponentIntentAlert, SubconsciousIntent
+from .auto_highlight_reel import AutoHighlightReel, HighlightReelPackage, HighlightClimaxType, StoryboardFrame
+from .battlegrounds_mode_reactor import BattlegroundsModeReactor, BGsReactorReport, BGsCompType, TavernUpgradeEV, CombatSimulationResult
 
 __all__ = [
     "ConfigManager",
@@ -249,4 +255,27 @@ __all__ = [
     "InteractiveVoiceBrain",
     "VoiceBrainResponse",
     "VoiceIntent",
+    "MicroMetaClimateRadar",
+    "MicroMetaReport",
+    "MetaClimateType",
+    "ClimateDriftMultipliers",
+    "SecretCausalForest",
+    "OptimalProbeSequence",
+    "SecretProbeStep",
+    "ProbeActionType",
+    "FlowTiltGuardian",
+    "FlowTiltStatus",
+    "TiltRiskTier",
+    "HoverIntentRadar",
+    "OpponentIntentAlert",
+    "SubconsciousIntent",
+    "AutoHighlightReel",
+    "HighlightReelPackage",
+    "HighlightClimaxType",
+    "StoryboardFrame",
+    "BattlegroundsModeReactor",
+    "BGsReactorReport",
+    "BGsCompType",
+    "TavernUpgradeEV",
+    "CombatSimulationResult",
 ]

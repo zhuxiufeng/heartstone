@@ -106,6 +106,12 @@ try:
     from core.self_evolving_reinforcement import SelfEvolvingReinforcement
     from core.fatigue_endgame_horizon import FatigueEndgameHorizon
     from core.interactive_voice_brain import InteractiveVoiceBrain
+    from core.micro_meta_climate import MicroMetaClimateRadar
+    from core.secret_causal_forest import SecretCausalForest
+    from core.flow_tilt_guardian import FlowTiltGuardian
+    from core.hover_intent_radar import HoverIntentRadar
+    from core.auto_highlight_reel import AutoHighlightReel
+    from core.battlegrounds_mode_reactor import BattlegroundsModeReactor
 except (ImportError, ValueError):
     from ..core.ai_engine import (
         AiEngine,
@@ -171,6 +177,12 @@ except (ImportError, ValueError):
     from ..core.self_evolving_reinforcement import SelfEvolvingReinforcement
     from ..core.fatigue_endgame_horizon import FatigueEndgameHorizon
     from ..core.interactive_voice_brain import InteractiveVoiceBrain
+    from ..core.micro_meta_climate import MicroMetaClimateRadar
+    from ..core.secret_causal_forest import SecretCausalForest
+    from ..core.flow_tilt_guardian import FlowTiltGuardian
+    from ..core.hover_intent_radar import HoverIntentRadar
+    from ..core.auto_highlight_reel import AutoHighlightReel
+    from ..core.battlegrounds_mode_reactor import BattlegroundsModeReactor
 from .card_tooltip import CardTooltip
 from .inplace_hud import InPlaceHudManager
 from .board_overlay import BoardTacticalOverlay
