@@ -40,7 +40,7 @@ from .card_db import CardDatabase, CardInfo, get_class_cn
 from .synergy_engine import SynergyEngine
 from .trade_optimizer import TradeOptimizer
 from .aoe_radar import AoeRadar
-from .posture_engine import PostureEngine
+from .posture_engine import PostureEngine, BeatdownPivotAlert, DynamicPivotTracker
 from .sequence_optimizer import SequenceOptimizer
 from .matchup_blueprint import MatchupBlueprintEngine, MatchupStrategy
 from .archetype_specializer import ArchetypeSpecializer, ArchetypeProfile, ArchetypeType
@@ -59,7 +59,8 @@ from .discovery_pool_radar import DiscoveryPoolRadar, DiscoveryProbabilityReport
 from .match_history_learner import MatchHistoryLearner
 from .hero_draft_advisor import HeroDraftAdvisor, HeroTierInfo
 from .burst_damage_guard import BurstDamageGuard, BurstThreatReport
-from .live_discover_advisor import LiveDiscoverAdvisor, DiscoverGuidance
+from .live_discover_advisor import LiveDiscoverAdvisor, DiscoverGuidance, DiscoverTriPickResult, DiscoverCardEvaluation
+from .secret_tracker import SecretTracker, SecretProbingPlan, SecretProbingStep
 from .variance_evaluator import VarianceEvaluator, VariancePolicyReport
 from .draft_quota_tracker import DraftQuotaTracker, DraftQuotaReport
 from .rng_probability_engine import RngProbabilityEngine, RngProbabilityReport
@@ -157,6 +158,18 @@ class PlayRecommendation:
     decision_tree_dict: Dict[str, Any] = field(default_factory=dict)
     var_report: Optional[Any] = None
     var_summary: str = ""
+    # v20 First-Principles Apex Engine Attributes
+    two_turn_lockout: bool = False
+    two_turn_lockout_directive: str = ""
+    two_turn_lockout_badge: str = ""
+    mana_flow_plan: Optional[ManaEfficiencyPlan] = None
+    mana_flow_tag: str = ""
+    mana_flow_preview: str = ""
+    beatdown_pivot_alert: Optional[BeatdownPivotAlert] = None
+    beatdown_pivot_text: str = ""
+    discover_tri_pick: Optional[DiscoverTriPickResult] = None
+    secret_probing_plan: Optional[SecretProbingPlan] = None
+    secret_probing_directive: str = ""
 
 
 class EvaluationCache:
@@ -229,6 +242,7 @@ class AiEngine:
         self.aoe_radar = AoeRadar()
         self.posture_engine = PostureEngine()
         self.sequence_optimizer = SequenceOptimizer()
+        self.secret_tracker = SecretTracker(self.card_db)
         self.match_learner = MatchHistoryLearner()
         self._gemini_model = None
 
@@ -814,7 +828,13 @@ class AiEngine:
         if opponent_hand_warnings:
             aoe_alerts = opponent_hand_warnings[:2] + aoe_alerts
 
-        # 4. Sequence Optimizer with Blunder Interceptions
+        # 4. Sequence Optimizer with Blunder Interceptions & Secret Probing
+        secret_probing_plan: SecretProbingPlan = self.secret_tracker.generate_probing_sequence(
+            friendly_minions=f_minions,
+            hand_cards=hand_cards,
+            available_mana=current_mana,
+            hero_power_available=current_mana >= 2,
+        )
         seq_res = self.sequence_optimizer.evaluate_sequence(
             planned_cards=[c.as_dict() if hasattr(c, "as_dict") else {"name": getattr(c, "name", str(c))} for c in hand_cards],
             friendly_minions_can_attack=any(m.get("can_attack", True) for m in f_minions),
@@ -822,6 +842,8 @@ class AiEngine:
             friendly_hero_class=opponent_class,
         )
         rec_seq = seq_res.recommended_sequence
+        if secret_probing_plan.has_active_secrets:
+            rec_seq = [f"🛡️【探奥秘】{s.instruction}" for s in secret_probing_plan.steps] + rec_seq
         if blunder_directives:
             rec_seq = blunder_directives + rec_seq
 
@@ -839,11 +861,19 @@ class AiEngine:
             friendly_hp=friendly_hp,
             enemy_board_attack=sum(m.get("atk", 0) for m in e_minions),
         )
+        is_two_turn_lockout = getattr(two_turn_plan, "is_guaranteed_lockout", False)
+        lockout_directive = getattr(two_turn_plan, "lockout_directive", "")
+        lockout_badge = getattr(two_turn_plan, "lockout_badge", "")
 
         # 5. Face Pivot Point & Choke Pressure
         face_pivot = ""
-        if two_turn_plan.is_two_turn_lethal and two_turn_plan.confidence >= 0.65:
+        pivot_alert: Optional[BeatdownPivotAlert] = getattr(posture_res, "pivot_alert", None)
+        if is_two_turn_lockout and lockout_directive:
+            face_pivot = lockout_directive
+        elif two_turn_plan.is_two_turn_lethal and two_turn_plan.confidence >= 0.65:
             face_pivot = two_turn_plan.recommendation
+        elif pivot_alert and pivot_alert.has_pivoted:
+            face_pivot = f"{pivot_alert.banner_badge} {pivot_alert.action_directive}"
         elif res_plan.choke_pressure_active:
             face_pivot = res_plan.strategic_directive
         elif f_atk >= enemy_hp * 0.45 or posture_res.posture_mode == "AGGRESSIVE":
@@ -915,6 +945,22 @@ class AiEngine:
             hand_size=len(hand_cards),
             is_facing_lethal=is_lethal_peril,
         )
+
+        # 7.2.1 In-Match Discover Tri-Pick Lens
+        sample_discover_cards = [c for c in hand_cards[:3]] if len(hand_cards) >= 3 else []
+        discover_tri_pick_res: Optional[DiscoverTriPickResult] = None
+        if sample_discover_cards:
+            discover_tri_pick_res = LiveDiscoverAdvisor.evaluate_tri_pick(
+                candidate_cards=sample_discover_cards,
+                friendly_hp=friendly_hp,
+                enemy_hp=enemy_hp,
+                friendly_board_atk=f_atk,
+                enemy_board_atk=e_atk,
+                hand_size=len(hand_cards),
+                available_mana=current_mana,
+                card_db=self.card_db,
+                is_facing_lethal=is_lethal_peril,
+            )
 
         # 7.3. Variance & Risk-Tolerance Policy
         best_winrate = action_tree_res.best_branch.projected_winrate if action_tree_res.best_branch else 50.0
@@ -1098,6 +1144,17 @@ class AiEngine:
                 rec.tilt_summary = f"{tilt_rep.tier_label}: {tilt_rep.action_directive}"
                 rec.mind_reading_summary = hand_read_str
                 rec.decision_tree_dict = tree_dict
+                rec.two_turn_lockout = is_two_turn_lockout
+                rec.two_turn_lockout_directive = lockout_directive
+                rec.two_turn_lockout_badge = lockout_badge
+                rec.mana_flow_plan = mana_eff_plan
+                rec.mana_flow_tag = getattr(mana_eff_plan, "flow_tag", "") if mana_eff_plan else ""
+                rec.mana_flow_preview = getattr(mana_eff_plan, "step_preview", "") if mana_eff_plan else ""
+                rec.beatdown_pivot_alert = pivot_alert
+                rec.beatdown_pivot_text = getattr(pivot_alert, "action_directive", "") if pivot_alert else ""
+                rec.discover_tri_pick = discover_tri_pick_res
+                rec.secret_probing_plan = secret_probing_plan
+                rec.secret_probing_directive = getattr(secret_probing_plan, "safest_attack_directive", "")
                 return rec
             except Exception as e:
                 logger.warning(f"LLM Play call failed: {e}. Using fallback.")
@@ -1188,6 +1245,17 @@ class AiEngine:
             decision_tree_dict=tree_dict,
             var_report=var_rep,
             var_summary=var_summary_str,
+            two_turn_lockout=is_two_turn_lockout,
+            two_turn_lockout_directive=lockout_directive,
+            two_turn_lockout_badge=lockout_badge,
+            mana_flow_plan=mana_eff_plan,
+            mana_flow_tag=getattr(mana_eff_plan, "flow_tag", "") if mana_eff_plan else "",
+            mana_flow_preview=getattr(mana_eff_plan, "step_preview", "") if mana_eff_plan else "",
+            beatdown_pivot_alert=pivot_alert,
+            beatdown_pivot_text=getattr(pivot_alert, "action_directive", "") if pivot_alert else "",
+            discover_tri_pick=discover_tri_pick_res,
+            secret_probing_plan=secret_probing_plan,
+            secret_probing_directive=getattr(secret_probing_plan, "safest_attack_directive", ""),
         )
 
     def evaluate_play_turn_stream(

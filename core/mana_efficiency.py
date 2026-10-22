@@ -26,6 +26,10 @@ class ManaEfficiencyPlan:
     total_floating_mana: int
     efficiency_pct: float
     advice_text: str
+    is_zero_waste: bool = False
+    flow_tag: str = ""
+    step_preview: str = ""
+    flow_smoothness_score: float = 0.0
 
 
 class ManaEfficiencyOptimizer:
@@ -116,22 +120,28 @@ class ManaEfficiencyOptimizer:
         curr_names = " + ".join(f"【{c.name}】({c.cost}费)" for c in curr_plays)
         next_names = " + ".join(f"【{c.name}】({c.cost}费)" for c in next_plays) if next_plays else "依赖神抽/英雄技能"
 
+        is_zero_waste = (best_floating == 0)
         if best_floating == 0:
+            flow_tag = "💎【费率榨干 100%】"
             advice = (
                 f"💎【双回合零空转打法】本回合打出 {curr_names} ({curr_spent}/{current_mana}费)；"
                 f"下回合顺接 {next_names} ({next_spent}/{next_mana}费)！"
                 f"连续两回合法力利用率 100%，完美榨干水晶，场面压迫力拉满！"
             )
         elif best_floating <= 1:
+            flow_tag = "⚡【极速顺滑 90%+】"
             advice = (
                 f"⚡【高法力效率组合】本回合打出 {curr_names}；下回合预期打出 {next_names}。"
                 f"两回合总法力利用率达 **{efficiency_pct:.0f}%** (仅闲置 {best_floating} 费)，节奏极为紧凑。"
             )
         else:
+            flow_tag = "💧【常规曲线】"
             advice = (
                 f"💡【连续费用规划】本回合推荐打出 {curr_names}；"
                 f"下回合衔接 {next_names} (两回合利用率 {efficiency_pct:.0f}%)。"
             )
+
+        step_preview = f"T{current_mana}: {curr_names} ➔ T{next_mana}: {next_names} (损耗 {best_floating} 费)"
 
         return ManaEfficiencyPlan(
             current_turn_plays=curr_plays,
@@ -143,4 +153,8 @@ class ManaEfficiencyOptimizer:
             total_floating_mana=best_floating,
             efficiency_pct=efficiency_pct,
             advice_text=advice,
+            is_zero_waste=is_zero_waste,
+            flow_tag=flow_tag,
+            step_preview=step_preview,
+            flow_smoothness_score=efficiency_pct,
         )

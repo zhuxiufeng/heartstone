@@ -25,6 +25,9 @@ class TwoTurnLethalPlan:
     confidence: float  # 0.0 to 1.0 based on enemy hand size and class
     recommendation: str = ""
     breakdown: List[str] = field(default_factory=list)
+    is_guaranteed_lockout: bool = False
+    lockout_directive: str = ""
+    lockout_badge: str = ""
 
 
 class TwoTurnLethalEngine:
@@ -177,15 +180,33 @@ class TwoTurnLethalEngine:
 
             confidence = max(0.2, min(0.95, base_confidence))
 
+            # First-Principles Guaranteed Lockout Check:
+            # If confidence is solid and turn 2 damage exceeds residual HP accounting for hero powers
+            margin = turn2_projected - enemy_residual_hp
+            heal_threat = 2 if enemy_class.upper() in cls.HEAL_ARMOR_CLASSES else 0
+            is_guaranteed_lockout = False
+            lockout_directive = ""
+            lockout_badge = ""
+
+            if confidence >= 0.70 and (margin >= heal_threat or enemy_hand_count <= 2):
+                is_guaranteed_lockout = True
+                lockout_badge = "🔒 【次轮必杀锁定】"
+                lockout_directive = (
+                    f"【次轮必杀锁定】无视敌方随从，全员打脸直接压制！"
+                    f"敌方下回合仅剩 {enemy_residual_hp} 血，我方次轮保底 {turn2_projected} 伤超额覆盖，数学必杀已锁定！"
+                )
+
             breakdown = [
                 f"T1打脸伤害: {turn1_total}点 (场攻{t1_board_damage} + 法术{t1_hand_damage} + 技能{t1_hp_dmg})",
                 f"T1后敌方残血: {enemy_residual_hp}点",
                 f"T2推演保底伤害: {turn2_projected}点 (场攻{t2_board_damage} + 法术{t2_hand_damage} + 技能{t2_hero_power})",
                 f"敌方手牌: {enemy_hand_count}张 (翻盘概率估算: {(1-confidence)*100:.0f}%)",
             ]
+            if is_guaranteed_lockout:
+                breakdown.append(f"必杀锁定状态: 已触发绝对叫杀锁定 (余量 +{margin} 点)")
 
             recommendation = (
-                f"🔥 两回合叫杀成立 (胜率把握 {confidence*100:.0f}%)！"
+                f"{lockout_badge or '🔥 两回合叫杀成立'} (叫杀成立·胜率把握 {confidence*100:.0f}%)！"
                 f"本轮全员走脸压至 {enemy_residual_hp} 血，下轮保底场攻 {turn2_projected} 点直接终结对手！"
             )
 
@@ -198,6 +219,9 @@ class TwoTurnLethalEngine:
                 confidence=confidence,
                 recommendation=recommendation,
                 breakdown=breakdown,
+                is_guaranteed_lockout=is_guaranteed_lockout,
+                lockout_directive=lockout_directive,
+                lockout_badge=lockout_badge,
             )
 
         return TwoTurnLethalPlan(

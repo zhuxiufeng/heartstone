@@ -58,7 +58,11 @@ try:
     from core.log_listener import LogListener
     from core.mulligan_advisor import MulliganAdvisor, MulliganAdvice
     from core.ocr_engine import OcrWorker
-    from core.secret_tracker import SecretTracker, TriggerType
+    from core.secret_tracker import SecretTracker, TriggerType, SecretProbingPlan, SecretProbingStep
+    from core.live_discover_advisor import LiveDiscoverAdvisor, DiscoverTriPickResult, DiscoverCardEvaluation
+    from core.posture_engine import BeatdownPivotAlert, DynamicPivotTracker
+    from core.two_turn_lethal import TwoTurnLethalEngine, TwoTurnLethalPlan
+    from core.mana_efficiency import ManaEfficiencyOptimizer, ManaEfficiencyPlan
     from core.synergy_engine import SynergyEngine
     from core.topdeck_math import TopdeckMath, TopdeckAdvice
     from core.window_finder import WindowFinder
@@ -136,7 +140,11 @@ except (ImportError, ValueError):
     from ..core.log_listener import LogListener
     from ..core.mulligan_advisor import MulliganAdvisor, MulliganAdvice
     from ..core.ocr_engine import OcrWorker
-    from ..core.secret_tracker import SecretTracker, TriggerType
+    from ..core.secret_tracker import SecretTracker, TriggerType, SecretProbingPlan, SecretProbingStep
+    from ..core.live_discover_advisor import LiveDiscoverAdvisor, DiscoverTriPickResult, DiscoverCardEvaluation
+    from ..core.posture_engine import BeatdownPivotAlert, DynamicPivotTracker
+    from ..core.two_turn_lethal import TwoTurnLethalEngine, TwoTurnLethalPlan
+    from ..core.mana_efficiency import ManaEfficiencyOptimizer, ManaEfficiencyPlan
     from ..core.synergy_engine import SynergyEngine
     from ..core.topdeck_math import TopdeckMath, TopdeckAdvice
     from ..core.window_finder import WindowFinder
@@ -860,9 +868,21 @@ class OverlayWindow(QMainWindow):
         pf_layout.setContentsMargins(0, 3, 0, 0)
         self.posture_badge_lbl = QLabel("姿态: 均势博弈", self)
         self.posture_badge_lbl.setStyleSheet("color: #94a3b8; font-size: 11px; font-weight: 600;")
+        self.beatdown_pivot_lbl = QLabel("", self)
+        self.beatdown_pivot_lbl.setStyleSheet("""
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 1px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        """)
+        self.beatdown_pivot_lbl.hide()
         self.clock_lbl = QLabel("斩杀时钟: --", self)
         self.clock_lbl.setStyleSheet("color: #64748b; font-size: 10.5px;")
         pf_layout.addWidget(self.posture_badge_lbl)
+        pf_layout.addWidget(self.beatdown_pivot_lbl)
         pf_layout.addStretch()
         pf_layout.addWidget(self.clock_lbl)
         ps_layout.addWidget(self.posture_frame)
@@ -1466,6 +1486,21 @@ class OverlayWindow(QMainWindow):
         self.secret_desc_lbl.setStyleSheet("color: #e2e8f0; font-size: 11px;")
         sf_layout.addWidget(self.secret_desc_lbl)
 
+        self.secret_probing_lbl = QLabel("", self)
+        self.secret_probing_lbl.setWordWrap(True)
+        self.secret_probing_lbl.setStyleSheet("""
+            background: rgba(192, 132, 252, 0.12);
+            color: #e9d5ff;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 4px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(192, 132, 252, 0.25);
+            margin-top: 2px;
+        """)
+        sf_layout.addWidget(self.secret_probing_lbl)
+        self.secret_probing_lbl.hide()
+
         sf_actions = QHBoxLayout()
         sf_actions.setSpacing(4)
         for label, trig in [("测随从", TriggerType.PLAY_MINION), ("测法术", TriggerType.CAST_SPELL), ("测打脸", TriggerType.ATTACK_HERO)]:
@@ -1499,8 +1534,9 @@ class OverlayWindow(QMainWindow):
         self.tab_deck_btn = QPushButton("🗃️ 剩余牌库", self)
         self.tab_hand_btn = QPushButton("👁️ 敌方手牌", self)
         self.tab_coin_btn = QPushButton("🪙 幸运币/罗盘", self)
+        self.tab_discover_btn = QPushButton("🔍 实战发现", self)
 
-        for btn in (self.tab_deck_btn, self.tab_hand_btn, self.tab_coin_btn):
+        for btn in (self.tab_deck_btn, self.tab_hand_btn, self.tab_coin_btn, self.tab_discover_btn):
             btn.setCursor(Qt.PointingHandCursor)
             btn.setStyleSheet("""
                 QPushButton {
@@ -1520,11 +1556,13 @@ class OverlayWindow(QMainWindow):
         db_layout.addWidget(self.tab_deck_btn)
         db_layout.addWidget(self.tab_hand_btn)
         db_layout.addWidget(self.tab_coin_btn)
+        db_layout.addWidget(self.tab_discover_btn)
         play_content_layout.addWidget(self.drawer_bar)
 
         self.tab_deck_btn.clicked.connect(lambda: self._switch_intel_tab("DECK"))
         self.tab_hand_btn.clicked.connect(lambda: self._switch_intel_tab("HAND"))
         self.tab_coin_btn.clicked.connect(lambda: self._switch_intel_tab("COIN"))
+        self.tab_discover_btn.clicked.connect(lambda: self._switch_intel_tab("DISCOVER"))
 
         self.intel_container = QWidget(self)
         intel_layout = QVBoxLayout(self.intel_container)
@@ -1597,6 +1635,78 @@ class OverlayWindow(QMainWindow):
         df_layout.addWidget(self.topdeck_lbl)
         self.topdeck_lbl.hide()
         intel_layout.addWidget(self.deck_frame)
+
+        # Discover Tri-Pick Frame (First-Principles Feature 4: In-Match Discover Tri-Pick Lens)
+        self.discover_tri_frame = QFrame(self.intel_container)
+        self.discover_tri_frame.setObjectName("discoverTriFrame")
+        self.discover_tri_frame.setStyleSheet("""
+            QFrame#discoverTriFrame {
+                background: rgba(255, 255, 255, 0.02);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                border-radius: 8px;
+            }
+            QLabel { background: transparent; border: none; padding: 0px; }
+        """)
+        dt_layout = QVBoxLayout(self.discover_tri_frame)
+        dt_layout.setContentsMargins(8, 6, 8, 6)
+        dt_layout.setSpacing(4)
+
+        dt_head = QHBoxLayout()
+        dt_title = QLabel("🔍 实战发现三选一即时透镜", self)
+        dt_title.setStyleSheet("color: #38bdf8; font-size: 11px; font-weight: 700;")
+        dt_head.addWidget(dt_title)
+        dt_head.addStretch()
+        self.discover_tri_macro_badge = QLabel("优先直伤", self)
+        self.discover_tri_macro_badge.setStyleSheet("""
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 1px 6px;
+            border-radius: 4px;
+        """)
+        dt_head.addWidget(self.discover_tri_macro_badge)
+        dt_layout.addLayout(dt_head)
+
+        self.discover_tri_cards_container = QWidget(self.discover_tri_frame)
+        self.discover_tri_cards_layout = QVBoxLayout(self.discover_tri_cards_container)
+        self.discover_tri_cards_layout.setContentsMargins(0, 2, 0, 2)
+        self.discover_tri_cards_layout.setSpacing(3)
+        dt_layout.addWidget(self.discover_tri_cards_container)
+
+        self.discover_tri_verdict_lbl = QLabel("等待发现或点击下方预设演练...", self)
+        self.discover_tri_verdict_lbl.setWordWrap(True)
+        self.discover_tri_verdict_lbl.setStyleSheet("color: #cbd5e1; font-size: 10.5px; font-weight: 600; padding-top: 2px;")
+        dt_layout.addWidget(self.discover_tri_verdict_lbl)
+
+        # Simulation presets row
+        dt_presets = QHBoxLayout()
+        dt_presets.setSpacing(4)
+        for p_label, p_cards in [
+            ("⚡ 斩杀直伤", ["火球术", "变羊术", "奥术智慧"]),
+            ("🛡️ 紧急保命", ["焦油爬行者", "深度冻结", "提尔之泪"]),
+            ("🌪️ 清场返场", ["烈焰风暴", "暴风雪", "随从战力"]),
+        ]:
+            p_btn = QPushButton(p_label, self)
+            p_btn.setStyleSheet("""
+                QPushButton {
+                    background: rgba(255, 255, 255, 0.04);
+                    color: #94a3b8;
+                    font-size: 9.5px;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                }
+                QPushButton:hover {
+                    background: rgba(56, 189, 248, 0.15);
+                    color: #38bdf8;
+                }
+            """)
+            p_btn.clicked.connect(lambda checked, c=p_cards: self._simulate_discover_tri_pick(c))
+            dt_presets.addWidget(p_btn)
+        dt_layout.addLayout(dt_presets)
+        intel_layout.addWidget(self.discover_tri_frame)
+        self.discover_tri_frame.hide()
 
         play_content_layout.addWidget(self.intel_container)
         self._active_intel_tab = "DECK"
@@ -2523,6 +2633,21 @@ class OverlayWindow(QMainWindow):
                 )
                 self.lethal_steps_lbl.setText("<b>斩杀执行路径:</b><br>" + "<br>".join(f"• {s}" for s in lethal_res.action_steps))
                 self.sound_engine.notify_lethal(damage=lethal_res.total_damage)
+            elif getattr(rec, "two_turn_lockout", False):
+                self.lethal_frame.show()
+                self.lethal_title_lbl.setText("🔒 次轮必杀锁定 (TWO-TURN LETHAL LOCKED)!")
+                self.lethal_title_lbl.setStyleSheet("color: #f97316; font-size: 13px; font-weight: 800; letter-spacing: 0.5px;")
+                self.lethal_frame.setStyleSheet("""
+                    QFrame#lethalFrame {
+                        background: rgba(249, 115, 22, 0.18);
+                        border: 1.5px solid #f97316;
+                        border-radius: 8px;
+                    }
+                    QLabel { background: transparent; border: none; padding: 0px; }
+                """)
+                self.lethal_detail_lbl.setText(getattr(rec, "two_turn_lockout_directive", rec.two_turn_lethal_advice))
+                self.lethal_steps_lbl.setText("<b>绝对行动指令:</b><br>• 全员随从走脸，严禁随从交换！敌方下回合无解牌/回血空间，已进入数学必杀！")
+                self.sound_engine.notify_two_turn_lethal()
             elif getattr(rec, "two_turn_lethal_advice", ""):
                 self.lethal_frame.show()
                 self.lethal_title_lbl.setText("⚔️ 两回合将死推演 · TWO-TURN LETHAL")
@@ -2588,6 +2713,14 @@ class OverlayWindow(QMainWindow):
             self.posture_badge_lbl.setText(badge_text)
             self.posture_badge_lbl.setStyleSheet(f"color: {badge_color}; font-size: 11px; font-weight: bold;")
             self.clock_lbl.setText(rec.beatdown_clock or "")
+
+            pivot_alert = getattr(rec, "beatdown_pivot_alert", None)
+            if pivot_alert and pivot_alert.has_pivoted:
+                self.beatdown_pivot_lbl.setText(pivot_alert.banner_badge)
+                self.beatdown_pivot_lbl.setToolTip(pivot_alert.action_directive)
+                self.beatdown_pivot_lbl.show()
+            else:
+                self.beatdown_pivot_lbl.hide()
 
             # 4.5. Coin Optimizer Analysis
             has_coin = payload.get("has_coin", False)
@@ -2857,7 +2990,10 @@ class OverlayWindow(QMainWindow):
                     trade_text_parts.append(f"• {ot}")
             if getattr(rec, "positioning_advice", ""):
                 trade_text_parts.append(f"\n♟️ **{rec.positioning_advice}**")
-            trade_text_parts.append(f"\n💡 {rec.mana_plan}")
+            if getattr(rec, "mana_flow_tag", "") and getattr(rec, "mana_flow_preview", ""):
+                trade_text_parts.append(f"\n{rec.mana_flow_tag} **费率榨干:** {rec.mana_flow_preview}")
+            elif getattr(rec, "mana_plan", ""):
+                trade_text_parts.append(f"\n💡 {rec.mana_plan}")
             self.play_trade_lbl.setText(format_tactical_text("\n".join(trade_text_parts)))
 
             # 7. Render risk warnings, burst danger, Discovery Radar & AOE Radar
@@ -3017,8 +3153,21 @@ class OverlayWindow(QMainWindow):
                 self.secret_frame.show()
                 self.secret_count_badge.setText(f"{len(self.secret_tracker.active_secrets)} 个活跃奥秘")
                 self.secret_desc_lbl.setText(format_tactical_text(self.secret_tracker.get_summary_text()))
+                probing_plan = getattr(rec, "secret_probing_plan", None)
+                if probing_plan and probing_plan.has_active_secrets and probing_plan.steps:
+                    steps_formatted = "<br>".join(
+                        f"<b>{s.step_number}.</b> {s.instruction} <span style='color:#c084fc;'>({s.purpose})</span>"
+                        for s in probing_plan.steps
+                    )
+                    self.secret_probing_lbl.setText(f"<b>🛡️ 最小代价探雷时序:</b><br>{steps_formatted}")
+                    self.secret_probing_lbl.show()
+                else:
+                    self.secret_probing_lbl.hide()
             else:
                 self.secret_frame.hide()
+
+            if getattr(rec, "discover_tri_pick", None):
+                self.update_discover_tri_pick(rec.discover_tri_pick)
 
             deck_stats = self.deck_tracker.get_stats()
             self.deck_count_badge.setText(f"剩余 {deck_stats.total_remaining} 张")
@@ -3082,14 +3231,16 @@ class OverlayWindow(QMainWindow):
             self.play_actions_lbl.setText(f"出牌推演异常: {e}")
 
     def _switch_intel_tab(self, tab: str) -> None:
-        """Toggles between Deck Tracker, Hand Reading, and Coin/Compass in the tactical drawer."""
+        """Toggles between Deck Tracker, Hand Reading, Coin/Compass, and Discover Lens in the tactical drawer."""
         current_tab = getattr(self, "_active_intel_tab", "DECK")
+        buttons = (self.tab_deck_btn, self.tab_hand_btn, self.tab_coin_btn, self.tab_discover_btn)
+        frames = (self.deck_frame, self.hand_frame, self.coin_frame, self.discover_tri_frame)
+
         if current_tab == tab and getattr(self, "_intel_expanded", True):
-            self.deck_frame.hide()
-            self.hand_frame.hide()
-            self.coin_frame.hide()
+            for f in frames:
+                f.hide()
             self._intel_expanded = False
-            for btn in (self.tab_deck_btn, self.tab_hand_btn, self.tab_coin_btn):
+            for btn in buttons:
                 btn.setStyleSheet("background: rgba(255, 255, 255, 0.04); color: #94a3b8; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.08);")
             return
 
@@ -3102,10 +3253,69 @@ class OverlayWindow(QMainWindow):
         self.tab_deck_btn.setStyleSheet(active_btn_qss if tab == "DECK" else inactive_btn_qss)
         self.tab_hand_btn.setStyleSheet(active_btn_qss if tab == "HAND" else inactive_btn_qss)
         self.tab_coin_btn.setStyleSheet(active_btn_qss if tab == "COIN" else inactive_btn_qss)
+        self.tab_discover_btn.setStyleSheet(active_btn_qss if tab == "DISCOVER" else inactive_btn_qss)
 
         self.deck_frame.setVisible(tab == "DECK")
         self.hand_frame.setVisible(tab == "HAND")
         self.coin_frame.setVisible(tab == "COIN")
+        self.discover_tri_frame.setVisible(tab == "DISCOVER")
+
+    def update_discover_tri_pick(self, tri_res: Optional[Any]) -> None:
+        """Renders 3-card ranking comparison capsules for live In-Match Discover decisions."""
+        if not tri_res:
+            return
+        if hasattr(tri_res, "guidance") and tri_res.guidance:
+            self.discover_tri_macro_badge.setText(tri_res.guidance.priority_badge)
+        self.discover_tri_verdict_lbl.setText(tri_res.verdict_directive)
+
+        # Clear existing cards
+        while self.discover_tri_cards_layout.count() > 0:
+            item = self.discover_tri_cards_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        for ev in tri_res.evaluations[:3]:
+            card_row = QWidget(self.discover_tri_cards_container)
+            row_layout = QHBoxLayout(card_row)
+            row_layout.setContentsMargins(6, 4, 6, 4)
+            row_layout.setSpacing(6)
+
+            is_best = getattr(ev, "is_best_pick", False)
+            bg = "rgba(14, 165, 233, 0.14)" if is_best else "rgba(255, 255, 255, 0.03)"
+            border = "1px solid #38bdf8" if is_best else "1px solid rgba(255, 255, 255, 0.06)"
+            card_row.setStyleSheet(f"background: {bg}; border: {border}; border-radius: 6px;")
+
+            badge_lbl = QLabel(ev.tier_badge, card_row)
+            badge_lbl.setStyleSheet("color: #38bdf8;" if is_best else "color: #94a3b8; font-size: 10px; font-weight: bold;")
+            name_lbl = QLabel(f"【{ev.name}】({ev.cost}费)", card_row)
+            name_lbl.setStyleSheet("color: #f8fafc; font-size: 11px; font-weight: bold;")
+            reason_lbl = QLabel(ev.reason, card_row)
+            reason_lbl.setStyleSheet("color: #94a3b8; font-size: 10px;")
+
+            score_lbl = QLabel(f"{ev.score:.1f}分", card_row)
+            score_lbl.setStyleSheet("color: #34d399; font-size: 11px; font-weight: bold;" if is_best else "color: #64748b; font-size: 10.5px;")
+
+            row_layout.addWidget(badge_lbl)
+            row_layout.addWidget(name_lbl)
+            row_layout.addWidget(reason_lbl, 1)
+            row_layout.addWidget(score_lbl)
+
+            self.discover_tri_cards_layout.addWidget(card_row)
+
+    def _simulate_discover_tri_pick(self, cards: List[str]) -> None:
+        """Simulates in-match discover triple for testing and instant comparison."""
+        tri_res = LiveDiscoverAdvisor.evaluate_tri_pick(
+            candidate_cards=cards,
+            friendly_hp=16,
+            enemy_hp=10,
+            friendly_board_atk=6,
+            enemy_board_atk=4,
+            hand_size=3,
+            available_mana=6,
+            card_db=self.card_db,
+        )
+        self.update_discover_tri_pick(tri_res)
+        self._switch_intel_tab("DISCOVER")
 
     def _switch_plan_view(self, plan: str) -> None:
         self._current_selected_plan = plan
@@ -3232,7 +3442,19 @@ class OverlayWindow(QMainWindow):
         """User or automatic action eliminates candidate secrets that didn't trigger."""
         self.secret_tracker.on_game_action(trigger)
         self.secret_desc_lbl.setText(format_tactical_text(self.secret_tracker.get_summary_text()))
-        self._on_status_updated(f"已执行奥秘动作测试: {trigger.value}")
+        if hasattr(self, "_current_rec") and self._current_rec:
+            probing = self.secret_tracker.generate_probing_sequence([], [])
+            if probing.has_active_secrets and probing.steps:
+                steps_formatted = "<br>".join(
+                    f"<b>{s.step_number}.</b> {s.instruction} <span style='color:#c084fc;'>({s.purpose})</span>"
+                    for s in probing.steps
+                )
+                self.secret_probing_lbl.setText(f"<b>🛡️ 最小代价探雷时序:</b><br>{steps_formatted}")
+                self.secret_probing_lbl.show()
+            else:
+                self.secret_probing_lbl.hide()
+        t_val = getattr(trigger, "value", str(trigger))
+        self._on_status_updated(f"已执行奥秘动作测试: {t_val}")
 
     @pyqtSlot(dict)
     def _on_card_played_in_match(self, payload: dict) -> None:

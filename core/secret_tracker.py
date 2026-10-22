@@ -8,11 +8,29 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from .card_db import CardDatabase, CardInfo
 
 logger = logging.getLogger("SecretTracker")
+
+
+@dataclass
+class SecretProbingStep:
+    step_number: int
+    action_type: str           # "ATTACK_FACE", "CAST_SPELL", "PLAY_MINION", "ATTACK_MINION"
+    target_card_or_minion: str
+    purpose: str
+    instruction: str
+
+
+@dataclass
+class SecretProbingPlan:
+    has_active_secrets: bool
+    total_active: int
+    steps: List[SecretProbingStep] = field(default_factory=list)
+    overview_text: str = ""
+    safest_attack_directive: str = ""
 
 
 class TriggerType(str, Enum):
@@ -161,3 +179,121 @@ class SecretTracker:
                 if s.eliminated_names:
                     lines.append(f"  *(已排除: {', '.join(list(s.eliminated_names)[:5])})*")
         return "\n".join(lines)
+
+    def generate_probing_sequence(
+        self,
+        friendly_minions: List[Dict[str, Any]],
+        hand_cards: List[CardInfo],
+        available_mana: int = 10,
+        hero_power_available: bool = True,
+    ) -> SecretProbingPlan:
+        """
+        Synthesizes the optimal minimum-regret sequence to safely probe and diffuse
+        all candidate secrets on the opponent's hero.
+        """
+        if not self.active_secrets:
+            return SecretProbingPlan(
+                has_active_secrets=False,
+                total_active=0,
+                overview_text="敌方头上无奥秘，所有操作安全",
+                safest_attack_directive="无奥秘阻碍，按正常战术节奏打脸或解场",
+            )
+
+        steps: List[SecretProbingStep] = []
+        step_idx = 1
+        possible_map = self.get_possible_secrets()
+        
+        # Aggregate all surviving triggers
+        all_active_triggers: Set[TriggerType] = set()
+        for cands in possible_map.values():
+            for c in cands:
+                all_active_triggers.update(c.triggers)
+
+        # 1. Probe Face Attack Trigger (Explosive, Freezing, Vaporize, Oasis Ally, Noble Sac)
+        ready_minions = [m for m in friendly_minions if m.get("can_attack", True)]
+        if TriggerType.ATTACK_HERO in all_active_triggers:
+            if ready_minions:
+                # Sort ascending by attack to sacrifice the weakest minion first
+                sorted_minions = sorted(ready_minions, key=lambda m: m.get("atk", 0))
+                bait_minion = sorted_minions[0]
+                steps.append(
+                    SecretProbingStep(
+                        step_number=step_idx,
+                        action_type="ATTACK_HERO",
+                        target_card_or_minion=bait_minion.get("name", "随从"),
+                        purpose="防范【蒸发 / 冰冻陷阱 / 爆炸陷阱 / 崇高牺牲】",
+                        instruction=f"先用低攻随从【{bait_minion.get('name')}】({bait_minion.get('atk', 0)}攻) 攻击敌方英雄探雷",
+                    )
+                )
+                step_idx += 1
+            else:
+                steps.append(
+                    SecretProbingStep(
+                        step_number=step_idx,
+                        action_type="ATTACK_HERO",
+                        target_card_or_minion="英雄或武器",
+                        purpose="防范脸部触发陷阱",
+                        instruction="我方无待命随从，若使用英雄/武器攻击请留意【冰冻/蒸发】风险",
+                    )
+                )
+                step_idx += 1
+
+        # 2. Probe Spell Trigger (Counterspell, Ice Trap, Oh My Yogg)
+        spells = [c for c in hand_cards if getattr(c, "card_type", "") == "SPELL" or "法术" in getattr(c, "card_type", "")]
+        if TriggerType.CAST_SPELL in all_active_triggers:
+            # Check for coin or cheap spell
+            coin = next((c for c in spells if "币" in c.name or c.id == "GAME_005"), None)
+            cheap_spells = sorted(spells, key=lambda c: c.cost)
+            bait_spell = coin or (cheap_spells[0] if cheap_spells else None)
+
+            if bait_spell:
+                steps.append(
+                    SecretProbingStep(
+                        step_number=step_idx,
+                        action_type="CAST_SPELL",
+                        target_card_or_minion=bait_spell.name,
+                        purpose="排查并诱骗【法术反制 / 冰霜陷阱 / 古神在上】",
+                        instruction=f"先打出低代价法术【{bait_spell.name}】({bait_spell.cost}费) 破除反制，保护核心法术",
+                    )
+                )
+                step_idx += 1
+
+        # 3. Probe Minion Play Trigger (Objection, Explosive Runes, Snipe, Repentance)
+        minions = [c for c in hand_cards if getattr(c, "card_type", "") == "MINION" or "随从" in getattr(c, "card_type", "")]
+        if TriggerType.PLAY_MINION in all_active_triggers:
+            affordable_minions = [c for c in minions if c.cost <= available_mana]
+            if affordable_minions:
+                sorted_minions = sorted(affordable_minions, key=lambda c: c.cost)
+                bait_minion_card = sorted_minions[0]
+                steps.append(
+                    SecretProbingStep(
+                        step_number=step_idx,
+                        action_type="PLAY_MINION",
+                        target_card_or_minion=bait_minion_card.name,
+                        purpose="防范【异议 / 爆炸符文 / 狙击】",
+                        instruction=f"先打出低费随从【{bait_minion_card.name}】({bait_minion_card.cost}费) 试探异议，勿裸下核心大哥",
+                    )
+                )
+                step_idx += 1
+
+        # Final Step: Secure main action
+        steps.append(
+            SecretProbingStep(
+                step_number=step_idx,
+                action_type="SECURE_FINISH",
+                target_card_or_minion="主力随从/终结手段",
+                purpose="安全收尾",
+                instruction="陷阱安全排查完毕，主力高攻随从安全走脸，或打出当回合核心斩杀/站场牌！",
+            )
+        )
+
+        overview = f"敌方头顶挂有 {len(self.active_secrets)} 个奥秘！按最小代价时序执行探雷，切忌直接使用大哥走脸或裸打关键法术。"
+        safest_dir = steps[0].instruction if steps else "谨慎试探奥秘"
+
+        return SecretProbingPlan(
+            has_active_secrets=True,
+            total_active=len(self.active_secrets),
+            steps=steps,
+            overview_text=overview,
+            safest_attack_directive=safest_dir,
+        )

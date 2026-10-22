@@ -8,9 +8,33 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import List
+from typing import Any, Dict, List, Optional, Union
+
+from .card_db import CardDatabase, CardInfo
 
 logger = logging.getLogger("LiveDiscoverAdvisor")
+
+
+@dataclass
+class DiscoverCardEvaluation:
+    name: str
+    card_id: str
+    cost: int
+    tier: str                  # "S", "A", "B", "C"
+    tier_badge: str            # "🔥 S级首选", "⭐ A级优质", "🔹 B级可用", "⚠️ C级下选"
+    score: float               # 0.0 ~ 100.0
+    reason: str
+    tactical_synergy: str
+    is_best_pick: bool = False
+
+
+@dataclass
+class DiscoverTriPickResult:
+    guidance: DiscoverGuidance
+    evaluations: List[DiscoverCardEvaluation]
+    best_card: Optional[DiscoverCardEvaluation]
+    lead_margin: float
+    verdict_directive: str
 
 
 @dataclass
@@ -82,4 +106,161 @@ class LiveDiscoverAdvisor:
             guidance_text="当前战局处于可控节奏中，三选一优先抓取【符合法力曲线的超模随从 / 优质身材战力】持续滚雪球施压！",
             recommended_card_types=["身材超模随从", "单体控场", "圣盾/魔免随从"],
             avoid_card_types=["过窄特化针对牌"],
+        )
+
+    @classmethod
+    def evaluate_tri_pick(
+        cls,
+        candidate_cards: List[Union[str, CardInfo]],
+        friendly_hp: int,
+        enemy_hp: int,
+        friendly_board_atk: int,
+        enemy_board_atk: int,
+        hand_size: int,
+        available_mana: int = 10,
+        card_db: Optional[CardDatabase] = None,
+        is_facing_lethal: bool = False,
+    ) -> DiscoverTriPickResult:
+        """
+        Ranks in-match Discover 3-card choices against active tactical needs,
+        mana constraints, and arena tier values.
+        """
+        guidance = cls.evaluate_discover_need(
+            friendly_hp=friendly_hp,
+            enemy_hp=enemy_hp,
+            friendly_board_atk=friendly_board_atk,
+            enemy_board_atk=enemy_board_atk,
+            hand_size=hand_size,
+            is_facing_lethal=is_facing_lethal,
+        )
+
+        db = card_db or CardDatabase.get_instance()
+        evaluations: List[DiscoverCardEvaluation] = []
+
+        for item in candidate_cards:
+            if isinstance(item, CardInfo):
+                c = item
+            else:
+                c = None
+                if db and hasattr(db, "get_by_name"):
+                    c = db.get_by_name(str(item))
+                if not c:
+                    c = CardInfo(id="", name=str(item), cost=3)
+
+            name = c.name
+            cost = c.cost
+            text = getattr(c, "text", "") or ""
+            c_type = getattr(c, "card_type", "") or ""
+            atk = getattr(c, "attack", 0) or 0
+            hp = getattr(c, "health", 0) or 0
+            rarity = getattr(c, "rarity", "COMMON") or "COMMON"
+
+            # 1. Base Score
+            if rarity in ("LEGENDARY", "EPIC"):
+                base_score = 75.0
+            elif rarity == "RARE":
+                base_score = 68.0
+            else:
+                base_score = 64.0
+
+            # 2. Tactical Fit Bonus / Malus based on priority_tier
+            bonus = 0.0
+            reason_parts: List[str] = []
+            tier_need = guidance.priority_tier
+
+            if tier_need == "SURVIVAL":
+                if any(k in name or k in text for k in ["嘲讽", "恢复", "治疗", "护甲", "冰冻", "潜行", "无法成为目标", "圣盾"]):
+                    bonus += 25.0
+                    reason_parts.append("契合保命防守需求")
+                elif cost >= 7 and "嘲讽" not in text:
+                    bonus -= 18.0
+                    reason_parts.append("高费笨重无防守战力")
+            elif tier_need == "BURST_FINISH":
+                if any(k in name or k in text for k in ["造成", "伤害", "直伤", "火球", "冲锋", "斩杀", "射击", "风怒"]):
+                    bonus += 26.0
+                    reason_parts.append("契合斩杀窗口直伤终结")
+                elif atk >= 6:
+                    bonus += 14.0
+                    reason_parts.append("高攻随从快速压血")
+                elif any(k in text for k in ["恢复", "抽牌"]):
+                    bonus -= 10.0
+            elif tier_need == "BOARD_CLEAR":
+                if any(k in name or k in text for k in ["所有", "全场", "消灭", "AOE", "暴风雪", "烈焰风暴", "横扫", "奉献", "剧毒"]):
+                    bonus += 28.0
+                    reason_parts.append("关键全场清算解场牌")
+                elif any(k in text for k in ["突袭", "造成"]):
+                    bonus += 15.0
+                    reason_parts.append("即时突袭返场战力")
+            elif tier_need == "VALUE_REFILL":
+                if any(k in text for k in ["抽", "发现", "置入", "复制", "亡语"]):
+                    bonus += 24.0
+                    reason_parts.append("核心续航资源补给")
+            else:  # TEMPO_DEVELOP
+                if atk + hp >= cost * 2 and cost > 0:
+                    bonus += 18.0
+                    reason_parts.append("超模身材站场施压")
+                if "突袭" in text or "圣盾" in text or "战吼" in text:
+                    bonus += 12.0
+
+            # 3. Mana Usability
+            if cost <= available_mana:
+                bonus += 8.0
+                reason_parts.append("当回合可立即打出")
+            elif cost == available_mana + 1:
+                bonus += 4.0
+                reason_parts.append("下回合准时压制")
+
+            final_score = max(25.0, min(99.0, base_score + bonus))
+
+            # Tier classification
+            if final_score >= 82.0:
+                tier = "S"
+                tier_badge = "🔥 S级首选"
+            elif final_score >= 70.0:
+                tier = "A"
+                tier_badge = "⭐ A级优质"
+            elif final_score >= 58.0:
+                tier = "B"
+                tier_badge = "🔹 B级可用"
+            else:
+                tier = "C"
+                tier_badge = "⚠️ C级下选"
+
+            evaluations.append(
+                DiscoverCardEvaluation(
+                    name=name,
+                    card_id=c.id,
+                    cost=cost,
+                    tier=tier,
+                    tier_badge=tier_badge,
+                    score=round(final_score, 1),
+                    reason=" · ".join(reason_parts) if reason_parts else "常规战力抓取",
+                    tactical_synergy=f"{tier_badge} ({final_score:.1f}分)",
+                )
+            )
+
+        # Sort descending by score
+        evaluations.sort(key=lambda e: e.score, reverse=True)
+        best_card = evaluations[0] if evaluations else None
+        if best_card:
+            best_card.is_best_pick = True
+
+        lead_margin = 0.0
+        if len(evaluations) >= 2:
+            lead_margin = round(evaluations[0].score - evaluations[1].score, 1)
+
+        if best_card:
+            verdict = (
+                f"【实战发现首选: {best_card.name}】{best_card.tier_badge} (领先 +{lead_margin:.1f} 分) · "
+                f"{best_card.reason}"
+            )
+        else:
+            verdict = "无有效发现候选卡牌"
+
+        return DiscoverTriPickResult(
+            guidance=guidance,
+            evaluations=evaluations,
+            best_card=best_card,
+            lead_margin=lead_margin,
+            verdict_directive=verdict,
         )

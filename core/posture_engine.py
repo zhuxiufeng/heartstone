@@ -14,6 +14,17 @@ logger = logging.getLogger("PostureEngine")
 
 
 @dataclass
+class BeatdownPivotAlert:
+    has_pivoted: bool
+    pivot_type: str            # "PIVOT_TO_OFFENSE", "PIVOT_TO_DEFENSE", "PIVOT_TO_ALL_IN", "STABLE"
+    banner_badge: str          # e.g. "⚡【攻守易势·全面转攻】"
+    action_directive: str      # Clear instruction for 3-second glanceability
+    catalyst_reason: str       # What caused the flip
+    previous_mode: str = ""
+    current_mode: str = ""
+
+
+@dataclass
 class PostureAssessment:
     posture_mode: str          # "AGGRESSIVE" (全军突击抢脸), "CONTROL" (控场交换), "ALL_IN" (孤注一掷), "BALANCED" (稳健均势)
     friendly_clock_turns: int  # How many turns friendly board needs to kill opponent hero
@@ -22,6 +33,7 @@ class PostureAssessment:
     card_advantage: int        # Friendly hand count - Enemy hand count
     recommended_focus: str     # Main strategic direction
     detailed_reasoning: str    # Analytical breakdown
+    pivot_alert: Optional[BeatdownPivotAlert] = None
 
 
 class PostureEngine:
@@ -87,7 +99,7 @@ class PostureEngine:
             focus = "🎯 伺机交换！化解敌方主要威胁随从，争取场面控制权"
             reason = f"当前处于均势博弈期，优先削减敌方高威胁生物以掌握主动权。"
 
-        return PostureAssessment(
+        raw_assessment = PostureAssessment(
             posture_mode=mode,
             friendly_clock_turns=friendly_clock,
             enemy_threat_turns=enemy_threat_turns,
@@ -95,4 +107,90 @@ class PostureEngine:
             card_advantage=card_advantage,
             recommended_focus=focus,
             detailed_reasoning=reason,
+        )
+
+        # Detect dynamic pivot moment
+        pivot_alert = DynamicPivotTracker.detect_pivot(
+            current=raw_assessment,
+            enemy_hand_count=enemy_hand_count,
+            friendly_hp=friendly_hp,
+            enemy_hp=enemy_hp,
+        )
+        raw_assessment.pivot_alert = pivot_alert
+        return raw_assessment
+
+
+class DynamicPivotTracker:
+    """Tracks strategic role transitions and raises instant pivot alerts."""
+
+    _last_mode: Optional[str] = None
+
+    @classmethod
+    def reset(cls) -> None:
+        cls._last_mode = None
+
+    @classmethod
+    def detect_pivot(
+        cls,
+        current: PostureAssessment,
+        enemy_hand_count: int = 4,
+        friendly_hp: int = 30,
+        enemy_hp: int = 30,
+    ) -> BeatdownPivotAlert:
+        prev_mode = cls._last_mode
+        curr_mode = current.posture_mode
+        cls._last_mode = curr_mode
+
+        # Case 1: Switched to AGGRESSIVE (from non-AGGRESSIVE) or immediate critical offensive threshold
+        if curr_mode == "AGGRESSIVE" and (prev_mode in ("CONTROL", "BALANCED", None) or enemy_hand_count <= 2 or current.friendly_clock_turns <= 2):
+            if enemy_hand_count <= 2:
+                catalyst = f"敌方手牌耗尽 (仅剩 {enemy_hand_count} 张)，已无续航手段"
+            elif current.friendly_clock_turns <= 2:
+                catalyst = f"我方斩杀时钟敲响 ({current.friendly_clock_turns} 回合)，敌方仅剩 {enemy_hp} 血"
+            else:
+                catalyst = f"我方场面战力压制 (领先 {current.tempo_score:.0f} 点)"
+
+            return BeatdownPivotAlert(
+                has_pivoted=True,
+                pivot_type="PIVOT_TO_OFFENSE",
+                banner_badge="⚡【攻守易势·全面转攻】",
+                action_directive="【攻守易势】敌方资源耗尽，从防守全面转入抢脸终结阶段！",
+                catalyst_reason=catalyst,
+                previous_mode=prev_mode or "INITIAL",
+                current_mode=curr_mode,
+            )
+
+        # Case 2: Switched to CONTROL (from AGGRESSIVE / BALANCED) or danger threshold
+        if curr_mode == "CONTROL" and (prev_mode in ("AGGRESSIVE", "BALANCED") or friendly_hp <= 12):
+            catalyst = f"我方生命滑落至警戒线 ({friendly_hp}血)，敌方最快 {current.enemy_threat_turns} 回合致命"
+            return BeatdownPivotAlert(
+                has_pivoted=True,
+                pivot_type="PIVOT_TO_DEFENSE",
+                banner_badge="🛡️【攻守易势·紧急筑防】",
+                action_directive="【攻守易势】我方进入危险射程，停止冒进，全力稳健护脸！",
+                catalyst_reason=catalyst,
+                previous_mode=prev_mode or "INITIAL",
+                current_mode=curr_mode,
+            )
+
+        # Case 3: ALL_IN pivot
+        if curr_mode == "ALL_IN":
+            return BeatdownPivotAlert(
+                has_pivoted=True,
+                pivot_type="PIVOT_TO_ALL_IN",
+                banner_badge="⚔️【攻守易势·孤注一掷】",
+                action_directive="【攻守易势】资源已脱节，拖入后期必败，抓住唯一窗口强行抢脸！",
+                catalyst_reason="手牌见底，依靠当前场面抢死对手是数学唯一解",
+                previous_mode=prev_mode or "INITIAL",
+                current_mode=curr_mode,
+            )
+
+        return BeatdownPivotAlert(
+            has_pivoted=False,
+            pivot_type="STABLE",
+            banner_badge="⚖️【战局平稳】",
+            action_directive="维持当前战术节奏，按部就班推进",
+            catalyst_reason="战术角色未发生剧烈跃迁",
+            previous_mode=prev_mode or curr_mode,
+            current_mode=curr_mode,
         )
