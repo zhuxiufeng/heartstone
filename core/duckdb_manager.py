@@ -86,11 +86,15 @@ class DuckDBManager:
         """Initializes duckdb connection with fallback to in-memory on disk errors."""
         try:
             self._con = duckdb.connect(database=self.db_path, read_only=False)
-            logger.info(f"DuckDB connection established successfully at: {self.db_path}")
+            self._con.execute("PRAGMA threads=4;")
+            self._con.execute("PRAGMA max_memory='256MB';")
+            logger.info(f"DuckDB connection established successfully at: {self.db_path} (threads=4, max_memory=256MB)")
         except Exception as e:
             logger.warning(f"Failed to open DuckDB at {self.db_path}: {e}. Falling back to in-memory database.")
             try:
                 self._con = duckdb.connect(database=":memory:", read_only=False)
+                self._con.execute("PRAGMA threads=4;")
+                self._con.execute("PRAGMA max_memory='256MB';")
                 self.in_memory = True
             except Exception as ex2:
                 logger.error(f"Failed to initialize in-memory DuckDB: {ex2}")
