@@ -68,6 +68,7 @@ class TacticalGhostBoardSimulator:
         current_mana: int = 1,
         spent_mana: int = 0,
         enemy_hp: int = 30,
+        trade_actions: Optional[List[Any]] = None,
     ) -> GhostBoardSnapshot:
         # Clone friendly and enemy minions
         f_list: List[Dict[str, Any]] = []
@@ -92,17 +93,34 @@ class TacticalGhostBoardSimulator:
                 hp = pm.get("health", pm.get("hp", 2))
                 f_list.append({"name": name, "attack": atk, "health": hp, "acted": True})
 
-        # Process trades
-        trades = optimal_trades or []
-        for tr in trades:
-            # Parse trade string like "随从A 换 随从B" or "以小换大: A -> B"
-            if "换" in tr or "->" in tr or "撞" in tr:
-                # Find matching friendly and enemy minion
-                unacted_f = [m for m in f_list if not m.get("acted", False) and m["health"] > 0]
-                alive_e = [m for m in e_list if m["health"] > 0]
-                if unacted_f and alive_e:
-                    f_m = unacted_f[0]
-                    e_m = alive_e[0]
+        def _match(pool: List[Dict[str, Any]], label: str, need_unacted: bool) -> Optional[Dict[str, Any]]:
+            """Match a minion by name: exact '{name} (' prefix first, then substring containment."""
+            cands = [m for m in pool if m["health"] > 0 and (not need_unacted or not m.get("acted", False))]
+            for m in cands:
+                if label.startswith(f"{m['name']} (") or label == m["name"]:
+                    return m
+            for m in cands:
+                if m["name"] and m["name"] in label:
+                    return m
+            return None
+
+        # Process trades. Prefer structured TradeAction objects (attacker_name/target_name/action_type);
+        # fall back to free-text strings by matching minion names contained in the text.
+        if trade_actions:
+            for act in trade_actions:
+                if getattr(act, "action_type", "") == "face":
+                    continue
+                f_m = _match(f_list, getattr(act, "attacker_name", ""), need_unacted=True)
+                e_m = _match(e_list, getattr(act, "target_name", ""), need_unacted=False)
+                if f_m and e_m:
+                    f_m["health"] -= e_m["attack"]
+                    e_m["health"] -= f_m["attack"]
+                    f_m["acted"] = True
+        else:
+            for tr in optimal_trades or []:
+                f_m = next((m for m in f_list if m["health"] > 0 and not m.get("acted") and m["name"] and m["name"] in tr), None)
+                e_m = next((m for m in e_list if m["health"] > 0 and m["name"] and m["name"] in tr), None)
+                if f_m and e_m:
                     f_m["health"] -= e_m["attack"]
                     e_m["health"] -= f_m["attack"]
                     f_m["acted"] = True

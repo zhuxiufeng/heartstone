@@ -174,3 +174,60 @@ def test_arena_career_vault_and_match_history_sync(tmp_path):
     db = DuckDBManager.get_instance()
     match_count = db.query_scalar("SELECT count(*) FROM match_events WHERE opponent_hero = 'PRIEST'")
     assert match_count >= 1
+
+
+def test_duckdb_ai_effectiveness_closedloop():
+    """Verify DuckDB records turn advice outcomes and computes AI effectiveness metrics."""
+    from core.turn_replayer import MatchReplaySummary, TurnReviewNode
+
+    db = DuckDBManager(in_memory=True)
+
+    # Match 1: Player strictly followed AI (high compliance), won the game
+    node_m1_t1 = TurnReviewNode(
+        turn_number=1, mana=1, max_mana=1, friendly_hp=30, enemy_hp=30,
+        ai_best_plan=["法力浮龙"], player_actual_plays=["法力浮龙"], score=100, action_grade="✅ 最佳 (Best)"
+    )
+    node_m1_t2 = TurnReviewNode(
+        turn_number=2, mana=2, max_mana=2, friendly_hp=30, enemy_hp=28,
+        ai_best_plan=["寒冰箭走脸"], player_actual_plays=["寒冰箭走脸"], score=100, action_grade="✅ 最佳 (Best)",
+        had_lethal=True, lethal_damage=6
+    )
+    summary_m1 = MatchReplaySummary(
+        result="WIN", total_turns=2, overall_accuracy_pct=100.0, grade_tier="S",
+        turn_nodes=[node_m1_t1, node_m1_t2]
+    )
+    ingested_m1 = db.record_match_replay(
+        match_id="M_MATCH_1", timestamp=100.0, result="WIN", friendly_hero="MAGE", opponent_hero="HUNTER", summary=summary_m1
+    )
+    assert ingested_m1 == 2
+
+    # Match 2: Player diverged from AI (blunders / missed lethal), lost the game
+    node_m2_t1 = TurnReviewNode(
+        turn_number=1, mana=1, max_mana=1, friendly_hp=30, enemy_hp=30,
+        ai_best_plan=["转甲"], player_actual_plays=[], score=30, action_grade="❌ 严重伏笔 (Blunder)"
+    )
+    node_m2_t2 = TurnReviewNode(
+        turn_number=2, mana=2, max_mana=2, friendly_hp=20, enemy_hp=5,
+        ai_best_plan=["火球斩杀"], player_actual_plays=["转甲空过"], score=15, action_grade="❌ 严重伏笔 (Blunder)",
+        had_lethal=True, lethal_damage=6
+    )
+    summary_m2 = MatchReplaySummary(
+        result="LOSS", total_turns=2, overall_accuracy_pct=22.5, grade_tier="D",
+        turn_nodes=[node_m2_t1, node_m2_t2]
+    )
+    ingested_m2 = db.record_match_replay(
+        match_id="M_MATCH_2", timestamp=200.0, result="LOSS", friendly_hero="WARRIOR", opponent_hero="ROGUE", summary=summary_m2
+    )
+    assert ingested_m2 == 2
+
+    # Run closedloop effectiveness query
+    report = db.query_ai_effectiveness_report()
+
+    assert report["total_matches_analyzed"] == 2
+    assert report["total_turns_analyzed"] == 4
+    assert report["winrate_when_followed"] == 100.0
+    assert report["winrate_when_diverged"] == 0.0
+    assert report["effectiveness_delta"] == 100.0
+    assert report["lethal_conversion_pct"] == 50.0  # 1 won, 1 lost with lethal
+    assert report["blunder_rate_per_game"] == 1.0   # 2 blunders across 2 games = 1.0/game
+    assert len(report["grade_distribution"]) >= 2

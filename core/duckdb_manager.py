@@ -171,6 +171,29 @@ class DuckDBManager:
                         synergy_tag VARCHAR
                     );
                 """)
+
+                # 5. AI Advice Effectiveness Closedloop Table (Turn-by-turn recommendations vs player execution)
+                self._con.execute("""
+                    CREATE TABLE IF NOT EXISTS advice_outcomes (
+                        id VARCHAR PRIMARY KEY,
+                        match_id VARCHAR,
+                        timestamp DOUBLE,
+                        turn INT,
+                        friendly_hero VARCHAR,
+                        opponent_hero VARCHAR,
+                        ai_plan VARCHAR,
+                        ai_ev DOUBLE,
+                        ai_winrate DOUBLE,
+                        player_plays VARCHAR,
+                        compliance_score DOUBLE,
+                        action_grade VARCHAR,
+                        had_lethal BOOLEAN,
+                        result VARCHAR
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_advice_match ON advice_outcomes(match_id);
+                    CREATE INDEX IF NOT EXISTS idx_advice_comp ON advice_outcomes(compliance_score);
+                    CREATE INDEX IF NOT EXISTS idx_advice_result ON advice_outcomes(result);
+                """)
                 self._initialized_tables = True
             except Exception as e:
                 logger.error(f"Error initializing DuckDB schemas: {e}", exc_info=True)
@@ -571,3 +594,207 @@ class DuckDBManager:
             LIMIT {int(limit)}
         """
         return self.query_dicts(sql, params)
+
+    # -------------------------------------------------------------------------
+    # AI Advice Effectiveness Closedloop Analytics (First-Principles Optimization)
+    # -------------------------------------------------------------------------
+    def record_advice_outcome(
+        self,
+        turn_id: str,
+        match_id: str,
+        timestamp: float,
+        turn: int,
+        friendly_hero: str,
+        opponent_hero: str,
+        ai_plan: List[str],
+        ai_ev: float,
+        ai_winrate: float,
+        player_plays: List[str],
+        compliance_score: float,
+        action_grade: str,
+        had_lethal: bool,
+        result: str,
+    ) -> None:
+        """Records an individual turn's AI recommendation vs player action into DuckDB."""
+        if not self._con:
+            return
+        with self._op_lock:
+            try:
+                ai_plan_json = json.dumps(ai_plan, ensure_ascii=False)
+                player_plays_json = json.dumps(player_plays, ensure_ascii=False)
+                self._con.execute("""
+                    INSERT OR REPLACE INTO advice_outcomes
+                    (id, match_id, timestamp, turn, friendly_hero, opponent_hero, 
+                     ai_plan, ai_ev, ai_winrate, player_plays, compliance_score, 
+                     action_grade, had_lethal, result)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, [
+                    turn_id, match_id, timestamp, turn, friendly_hero.upper(), opponent_hero.upper(),
+                    ai_plan_json, float(ai_ev), float(ai_winrate), player_plays_json,
+                    float(compliance_score), action_grade, bool(had_lethal), result.upper()
+                ])
+            except Exception as e:
+                logger.error(f"Error recording advice outcome: {e}")
+
+    def record_match_replay(
+        self,
+        match_id: str,
+        timestamp: float,
+        result: str,
+        friendly_hero: str,
+        opponent_hero: str,
+        summary: Any,
+    ) -> int:
+        """
+        Bulk ingests all turn nodes of a completed match into advice_outcomes.
+        Accepts MatchReplaySummary or dict with turn_nodes.
+        Returns number of turn records ingested.
+    """
+        if not self._con or not summary:
+            return 0
+        turn_nodes = getattr(summary, "turn_nodes", None)
+        if turn_nodes is None and isinstance(summary, dict):
+            turn_nodes = summary.get("turn_nodes", [])
+        if not turn_nodes:
+            return 0
+
+        res_upper = str(result).upper()
+        inserted_count = 0
+
+        for node in turn_nodes:
+            turn_num = getattr(node, "turn_number", 1)
+            turn_id = f"{match_id}_T{turn_num}"
+            score = getattr(node, "score", 100)
+            compliance = max(0.0, min(1.0, float(score) / 100.0))
+
+            ai_plan = getattr(node, "ai_best_plan", [])
+            ai_ev = getattr(node, "ai_ev", 0.0)
+            ai_wr = getattr(node, "ai_winrate", 50.0)
+            player_plays = getattr(node, "player_actual_plays", [])
+            action_grade = getattr(node, "action_grade", "✅ 最佳")
+            had_lethal = getattr(node, "had_lethal", False)
+
+            self.record_advice_outcome(
+                turn_id=turn_id,
+                match_id=match_id,
+                timestamp=timestamp,
+                turn=turn_num,
+                friendly_hero=friendly_hero,
+                opponent_hero=opponent_hero,
+                ai_plan=ai_plan,
+                ai_ev=ai_ev,
+                ai_winrate=ai_wr,
+                player_plays=player_plays,
+                compliance_score=compliance,
+                action_grade=action_grade,
+                had_lethal=had_lethal,
+                result=res_upper,
+            )
+            inserted_count += 1
+
+        logger.info(f"Recorded match replay {match_id} ({inserted_count} turns) in DuckDB advice_outcomes.")
+        return inserted_count
+
+    def query_ai_effectiveness_report(self) -> Dict[str, Any]:
+        """
+        Calculates empirical closedloop effectiveness metrics:
+        1. Winrate when player followed AI advice (compliance >= 0.7) vs diverged (< 0.7).
+        2. Lethal conversion rate (games won when AI flagged lethal).
+        3. Overall advice compliance rate and grade breakdown.
+        """
+        default_rep: Dict[str, Any] = {
+            "total_matches_analyzed": 0,
+            "total_turns_analyzed": 0,
+            "overall_compliance_pct": 0.0,
+            "winrate_when_followed": 0.0,
+            "winrate_when_diverged": 0.0,
+            "effectiveness_delta": 0.0,
+            "lethal_conversion_pct": 0.0,
+            "blunder_rate_per_game": 0.0,
+            "grade_distribution": {},
+        }
+        if not self._con:
+            return default_rep
+
+        with self._op_lock:
+            try:
+                # 1. Total turns and match count
+                turn_stats = self.query("""
+                    SELECT 
+                        count(*) as total_turns,
+                        count(DISTINCT match_id) as total_matches,
+                        coalesce(avg(compliance_score), 0.0) as avg_compliance
+                    FROM advice_outcomes
+                """)
+                if not turn_stats or turn_stats[0][0] == 0:
+                    return default_rep
+
+                total_turns, total_matches, avg_comp = turn_stats[0]
+
+                # 2. Match-level compliance vs winrate
+                # A match is considered 'followed' if average compliance in that match >= 0.70
+                match_outcomes = self.query("""
+                    WITH match_agg AS (
+                        SELECT 
+                            match_id,
+                            avg(compliance_score) as match_comp,
+                            max(result) as match_res
+                        FROM advice_outcomes
+                        GROUP BY match_id
+                    )
+                    SELECT 
+                        count(case when match_comp >= 0.70 then 1 end) as followed_matches,
+                        sum(case when match_comp >= 0.70 and match_res = 'WIN' then 1 else 0 end) as followed_wins,
+                        count(case when match_comp < 0.70 then 1 end) as diverged_matches,
+                        sum(case when match_comp < 0.70 and match_res = 'WIN' then 1 else 0 end) as diverged_wins
+                    FROM match_agg
+                """)
+
+                f_matches, f_wins, d_matches, d_wins = match_outcomes[0] if match_outcomes else (0, 0, 0, 0)
+                wr_followed = round((f_wins / f_matches) * 100.0, 1) if f_matches > 0 else 0.0
+                wr_diverged = round((d_wins / d_matches) * 100.0, 1) if d_matches > 0 else 0.0
+                eff_delta = round(wr_followed - wr_diverged, 1)
+
+                # 3. Lethal conversion rate
+                lethal_stats = self.query("""
+                    WITH lethal_matches AS (
+                        SELECT 
+                            match_id,
+                            max(result) as match_res
+                        FROM advice_outcomes
+                        WHERE had_lethal = TRUE
+                        GROUP BY match_id
+                    )
+                    SELECT 
+                        count(*) as total_lethal_matches,
+                        sum(case when match_res = 'WIN' then 1 else 0 end) as lethal_wins
+                    FROM lethal_matches
+                """)
+                l_total, l_wins = lethal_stats[0] if lethal_stats else (0, 0)
+                lethal_pct = round((l_wins / l_total) * 100.0, 1) if l_total > 0 else 0.0
+
+                # 4. Grade distribution & blunders
+                grade_rows = self.query("""
+                    SELECT action_grade, count(*) 
+                    FROM advice_outcomes 
+                    GROUP BY action_grade
+                """)
+                grade_dist = {r[0]: r[1] for r in grade_rows}
+
+                blunder_count = sum(cnt for g, cnt in grade_dist.items() if "伏笔" in g or "Blunder" in g)
+                blunder_per_game = round(blunder_count / total_matches, 2) if total_matches > 0 else 0.0
+
+                return {
+                    "total_matches_analyzed": total_matches,
+                    "total_turns_analyzed": total_turns,
+                    "overall_compliance_pct": round(float(avg_comp) * 100.0, 1),
+                    "winrate_when_followed": wr_followed,
+                    "winrate_when_diverged": wr_diverged,
+                    "effectiveness_delta": eff_delta,
+                    "lethal_conversion_pct": lethal_pct,
+                    "blunder_rate_per_game": blunder_per_game,
+                    "grade_distribution": grade_dist,
+                }
+            except Exception as e:
+                logger.error(f"Error computing AI effectiveness report: {e}", exc_info=True)
+                return default_rep

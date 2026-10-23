@@ -50,6 +50,7 @@ from .blunder_shield import BlunderShield, BlunderAlert
 from .mana_efficiency import ManaEfficiencyOptimizer, ManaEfficiencyPlan
 from .ping_protector import PingProtector
 from .hsreplay_sync import HsreplaySync
+from .arena_card_stats import ArenaCardStats, CardWinrate
 from .two_turn_lethal import TwoTurnLethalEngine, TwoTurnLethalPlan
 from .positioning_geometry import PositioningGeometry, PositioningAdvice
 from .mulligan_hand_reader import MulliganHandReader, MulliganHandAnalysis
@@ -79,6 +80,9 @@ from .temporal_bottleneck_guard import TemporalBottleneckGuard, SaturationAssess
 
 logger = logging.getLogger("AiEngine")
 
+# Bump whenever draft scoring logic changes so persisted evaluation caches are invalidated.
+DRAFT_SCORING_VERSION = "v23-realdata"
+
 def get_default_eval_cache_file() -> Path:
     if getattr(sys, "frozen", False):
         base_dir = Path(sys.executable).resolve().parent
@@ -107,6 +111,8 @@ class CardEvaluation:
     marginal_delta: float = 0.0
     archetype_fit_tag: str = ""
     saturation_assessment: Optional[SaturationAssessment] = None
+    real_winrate_pct: Optional[float] = None      # Bayesian-adjusted drawn win rate, None = no data
+    real_winrate_samples: int = 0
 
 
 @dataclass
@@ -196,6 +202,9 @@ class PlayRecommendation:
     opponent_punish_envelope: Optional[OpponentPunishEnvelope] = None
     mana_leak_audit: Optional[ManaLeakAuditResult] = None
     miracle_out_report: Optional[MiracleOutReport] = None
+    # Data integrity flags
+    data_complete: bool = True
+    data_warnings: List[str] = field(default_factory=list)
 
 
 class EvaluationCache:
@@ -360,7 +369,11 @@ class AiEngine:
 
         # Check Cache (keyed by hero, curve, candidate IDs, and drafted deck IDs)
         if self.cache_enabled:
-            cache_key = self.cache.compute_draft_hash(hero_class, curve, candidate_ids + ["|"] + deck_ids)
+            # Salt with scoring version + stats snapshot date so new data/logic invalidates old entries
+            stats_ver = ArenaCardStats.get_instance().last_updated()[:10]
+            cache_key = self.cache.compute_draft_hash(
+                hero_class, curve, candidate_ids + ["|"] + deck_ids + ["|", DRAFT_SCORING_VERSION, stats_ver]
+            )
             cached_val = self.cache.get(cache_key)
             if cached_val:
                 logger.info(f"Draft recommendation cache HIT: {cache_key}")
@@ -558,23 +571,30 @@ class AiEngine:
             score = 65  # Base score
             curve_fill_note = ""
 
-            # 1. Rarity bonus (Phase 1 amplifies raw quality)
-            rarity_mult = 1.3 if pick_num <= 10 else 1.0
-            if card.rarity == "LEGENDARY":
-                score += int(16 * rarity_mult)
-            elif card.rarity == "EPIC":
-                score += int(9 * rarity_mult)
-            elif card.rarity == "RARE":
-                score += int(5 * rarity_mult)
+            # 0. Real arena win-rate data (Firestone public stats). When present it REPLACES the
+            #    intrinsic-quality heuristics below (rarity / stat ratio / keywords / static table),
+            #    which would otherwise double-count card strength.
+            real_wr = ArenaCardStats.get_instance().get_card_winrate(card.id, hero_class)
+            if real_wr is not None:
+                score += int(round(real_wr.score_delta))
+            else:
+                # 1. Rarity bonus (Phase 1 amplifies raw quality)
+                rarity_mult = 1.3 if pick_num <= 10 else 1.0
+                if card.rarity == "LEGENDARY":
+                    score += int(16 * rarity_mult)
+                elif card.rarity == "EPIC":
+                    score += int(9 * rarity_mult)
+                elif card.rarity == "RARE":
+                    score += int(5 * rarity_mult)
 
-            # 2. Stats to cost ratio
-            if card.attack is not None and card.health is not None:
-                expected_stats = card.cost * 2 + 1
-                actual_stats = card.attack + card.health
-                if actual_stats >= expected_stats:
-                    score += 10
-                elif actual_stats < expected_stats - 2:
-                    score -= 6
+                # 2. Stats to cost ratio
+                if card.attack is not None and card.health is not None:
+                    expected_stats = card.cost * 2 + 1
+                    actual_stats = card.attack + card.health
+                    if actual_stats >= expected_stats:
+                        score += 10
+                    elif actual_stats < expected_stats - 2:
+                        score -= 6
 
             # 3. Curve balance logic - Phase & Drafted-Deck Aware
             cost_bucket = min(card.cost, 7)
@@ -603,11 +623,12 @@ class AiEngine:
                 elif cost_bucket >= 7 and curve[7] >= 3:
                     score -= 20
 
-            # 4. Key mechanics
-            if "DEATHRATTLE" in card.mechanics or "BATTLECRY" in card.mechanics:
-                score += 6
-            if "TAUNT" in card.mechanics or "RUSH" in card.mechanics:
-                score += 8
+            # 4. Key mechanics (heuristic quality proxy; skipped when real data exists)
+            if real_wr is None:
+                if "DEATHRATTLE" in card.mechanics or "BATTLECRY" in card.mechanics:
+                    score += 6
+                if "TAUNT" in card.mechanics or "RUSH" in card.mechanics:
+                    score += 8
 
             # 5. Dynamic Synergy Engine bonus (Phase 3 amplified)
             syn_eval = self.synergy_engine.evaluate_synergies(card, deck)
@@ -628,7 +649,7 @@ class AiEngine:
                 score += int(hist_delta)
 
             # 9. HSReplay Cloud Meta Win-Rate (天梯大数据校准)
-            hsreplay_delta = HsreplaySync.get_instance().get_card_winrate_delta(card.id, card.name)
+            hsreplay_delta = 0.0 if real_wr is not None else HsreplaySync.get_instance().get_card_winrate_delta(card.id, card.name)
             if hsreplay_delta != 0:
                 score += int(hsreplay_delta)
 
@@ -678,7 +699,7 @@ class AiEngine:
                 max_score = score
                 best_idx = idx
 
-            card_pros = ["身材扎实" if card.card_type == "MINION" else "法术实用"]
+            card_pros = [real_wr.label] if real_wr is not None else ["⚙️ 无实战数据，按规则估分"]
             if sat_res.is_saturated:
                 card_pros.append(f"{sat_res.saturation_tag}: {sat_res.advice}")
             if archetype_fit_tag:
@@ -688,7 +709,7 @@ class AiEngine:
             if hist_delta != 0:
                 card_pros.append(f"📊 本地胜率反馈: {'+' if hist_delta > 0 else ''}{hist_delta:.0f}分")
             if hsreplay_delta != 0:
-                card_pros.append(f"🌐 HSReplay大数据: {'+' if hsreplay_delta > 0 else ''}{hsreplay_delta:.0f}分")
+                card_pros.append(f"📚 内置参考表: {'+' if hsreplay_delta > 0 else ''}{hsreplay_delta:.0f}分")
             if syn_eval.bonus_score != 0:
                 sign = "+" if syn_eval.bonus_score > 0 else ""
                 card_pros.append(f"【{syn_eval.synergy_type}】{sign}{syn_eval.bonus_score:.0f}分: {syn_eval.explanation}")
@@ -726,6 +747,8 @@ class AiEngine:
                     marginal_delta=marginal_delta,
                     archetype_fit_tag=archetype_fit_tag,
                     saturation_assessment=sat_res,
+                    real_winrate_pct=round(real_wr.adjusted_winrate_pct, 1) if real_wr else None,
+                    real_winrate_samples=real_wr.drawn_games if real_wr else 0,
                 )
             )
 
@@ -776,10 +799,12 @@ class AiEngine:
             shield = "圣盾" in name or "Divine" in name
             poison = "剧毒" in name or "Poison" in name
             m = re.search(r"\((\d+)/(\d+)\)", name)
+            stats_known = bool(m)
             if m:
                 atk = int(m.group(1))
                 hp = int(m.group(2))
             minions.append({
+                "stats_known": stats_known,
                 "name": name,
                 "attack": atk,
                 "health": hp,
@@ -804,10 +829,26 @@ class AiEngine:
         enemy_hp: int = 30,
         enemy_secrets_count: int = 0,
         use_llm: bool = True,
+        remaining_deck: Optional[List[CardInfo]] = None,
     ) -> PlayRecommendation:
-        """Provides real-time tactical suggestions during play turns with Hand Reading."""
+        """Provides real-time tactical suggestions during play turns with Hand Reading.
+
+        remaining_deck: cards still in the player's deck (from DeckTracker). When None, deck-dependent
+        probability features (topdeck odds, miracle outs) report "no deck data" instead of guessing.
+        """
+        deck_cards: List[CardInfo] = list(remaining_deck or [])
         f_minions = self._parse_board_minions(friendly_board)
         e_minions = self._parse_board_minions(enemy_board)
+
+        # 0. Data integrity: never present guessed stats as facts
+        data_warnings: List[str] = []
+        unknown_f = [m.get("name", "?") for m in f_minions if m.get("stats_known") is False]
+        unknown_e = [m.get("name", "?") for m in e_minions if m.get("stats_known") is False]
+        if unknown_f or unknown_e:
+            data_warnings.append(f"⚠️ {len(unknown_f) + len(unknown_e)} 个随从身材未识别，斩杀/交换结果仅供参考")
+        if remaining_deck is None:
+            data_warnings.append("ℹ️ 未提供剩余牌库，抽牌概率功能已停用")
+        data_complete = not (unknown_f or unknown_e)
 
         # 1. Posture & Clock
         f_atk = sum(m.get("attack", 0) for m in f_minions)
@@ -1164,7 +1205,7 @@ class AiEngine:
         from .tilt_guard import TiltGuard
 
         hyper_rep = HypergeometricOddsEngine.evaluate_deck_odds(
-            remaining_deck=hand_cards,
+            remaining_deck=deck_cards,
             enemy_hp=enemy_hp,
             friendly_hp=friendly_hp,
             enemy_board_attack=e_atk,
@@ -1226,7 +1267,8 @@ class AiEngine:
             enemy_minions=e_minions,
             played_minions=played_minions_list,
             optimal_trades=trade_steps,
-            face_damage=max(0, f_atk - (sum(m.get("health", 2) for m in e_minions) if trade_steps else 0)),
+            trade_actions=trade_res.actions,
+            face_damage=trade_res.total_face_damage,
             current_mana=current_mana,
             spent_mana=spent_for_ghost,
             enemy_hp=enemy_hp,
@@ -1246,7 +1288,15 @@ class AiEngine:
             hero_power_available=True,
         )
 
-        rem_deck_tuples = [(c, 1) for c in hand_cards]
+        # Group the real remaining deck by card id -> (CardInfo, copies)
+        _deck_groups: Dict[str, List[Any]] = {}
+        for c in deck_cards:
+            key = getattr(c, "id", "") or getattr(c, "name", "")
+            if key in _deck_groups:
+                _deck_groups[key][1] += 1
+            else:
+                _deck_groups[key] = [c, 1]
+        rem_deck_tuples = [(g[0], g[1]) for g in _deck_groups.values()]
         miracle_out_res = MiracleOutFilter.evaluate_miracle_outs(
             winrate_pct=live_winrate.winrate_pct,
             remaining_cards=rem_deck_tuples,
@@ -1322,6 +1372,8 @@ class AiEngine:
                 rec.opponent_punish_envelope = punish_envelope_res
                 rec.mana_leak_audit = mana_leak_res
                 rec.miracle_out_report = miracle_out_res
+                rec.data_complete = data_complete
+                rec.data_warnings = data_warnings
                 return rec
             except Exception as e:
                 logger.warning(f"LLM Play call failed: {e}. Using fallback.")
@@ -1435,6 +1487,8 @@ class AiEngine:
             opponent_punish_envelope=punish_envelope_res,
             mana_leak_audit=mana_leak_res,
             miracle_out_report=miracle_out_res,
+            data_complete=data_complete,
+            data_warnings=data_warnings,
         )
 
     def evaluate_play_turn_stream(

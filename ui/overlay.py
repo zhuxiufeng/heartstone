@@ -350,6 +350,12 @@ class OverlayWindow(QMainWindow):
         self.config_manager = config_manager
         self.card_db = card_db
         self.ai_engine = ai_engine
+        # Warm real arena win-rate data in the background (cache-first, 24h TTL, never blocks UI)
+        try:
+            from core.arena_card_stats import ArenaCardStats
+            ArenaCardStats.get_instance().prefetch()
+        except Exception as e:
+            logger.debug(f"Arena stats prefetch skipped: {e}")
         self.log_listener = log_listener
         self.ocr_worker = ocr_worker
 
@@ -861,6 +867,31 @@ class OverlayWindow(QMainWindow):
         ps_top_row.addStretch()
         ps_top_row.addWidget(self.live_winrate_lbl)
         ps_top_row.addWidget(self.play_opp_lbl)
+
+        # First-Principles HUD Simplification: One-Click Zen Focus HUD Toggle
+        self.is_zen_hud = False
+        self.zen_hud_btn = QPushButton("🎯 极简", self)
+        self.zen_hud_btn.setCursor(Qt.PointingHandCursor)
+        self.zen_hud_btn.setToolTip("点击切换【极简对局HUD】与【完整推演面板】")
+        self.zen_hud_btn.setStyleSheet("""
+            QPushButton {
+                background: rgba(255, 255, 255, 0.05);
+                color: #94a3b8;
+                font-size: 10px;
+                font-weight: bold;
+                padding: 2px 7px;
+                border-radius: 6px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            QPushButton:hover {
+                background: rgba(56, 189, 248, 0.2);
+                color: #38bdf8;
+                border-color: #38bdf8;
+            }
+        """)
+        self.zen_hud_btn.clicked.connect(self._toggle_zen_hud)
+        ps_top_row.addWidget(self.zen_hud_btn)
+
         ps_layout.addLayout(ps_top_row)
 
         # Seamless Posture & Beatdown Clock Row inside status banner
@@ -978,6 +1009,13 @@ class OverlayWindow(QMainWindow):
         self.game_over_blunder_lbl.setWordWrap(True)
         self.game_over_blunder_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
         gof_layout.addWidget(self.game_over_blunder_lbl)
+
+        # First-Principles Closedloop Metric: Real Empirical Effect Measurement
+        self.game_over_eff_lbl = QLabel("", self)
+        self.game_over_eff_lbl.setWordWrap(True)
+        self.game_over_eff_lbl.setStyleSheet("color: #38bdf8; font-size: 11px; padding-top: 2px;")
+        gof_layout.addWidget(self.game_over_eff_lbl)
+        self.game_over_eff_lbl.hide()
 
         gof_btn_row = QHBoxLayout()
         self.return_draft_btn = QPushButton("🃏 返回选牌模式", self)
@@ -2600,6 +2638,13 @@ class OverlayWindow(QMainWindow):
             friendly_hp = payload.get("friendly_hp", 30)
             enemy_hp = payload.get("enemy_hp", 30)
             secrets_count = len(self.secret_tracker.active_secrets) if hasattr(self, "secret_tracker") else 0
+            remaining_deck = None
+            if hasattr(self, "deck_tracker"):
+                try:
+                    if self.deck_tracker.get_stats().total_remaining > 0:
+                        remaining_deck = self.deck_tracker.get_remaining_cards()
+                except Exception:
+                    remaining_deck = None
 
             # 1. Optimistic Fast-Path: evaluate 15 heuristic engines locally (<2ms) without UI freezing
             rec: PlayRecommendation = self.ai_engine.evaluate_play_turn(
@@ -2615,6 +2660,7 @@ class OverlayWindow(QMainWindow):
                 enemy_hp=enemy_hp,
                 enemy_secrets_count=secrets_count,
                 use_llm=False,
+                remaining_deck=remaining_deck,
             )
 
             # 2. Asynchronous LLM Deep Evaluation: non-blocking thread for online reasoning
@@ -2634,6 +2680,7 @@ class OverlayWindow(QMainWindow):
                             enemy_hp=enemy_hp,
                             enemy_secrets_count=secrets_count,
                             use_llm=True,
+                            remaining_deck=remaining_deck,
                         )
                         QTimer.singleShot(0, lambda: self._enhance_play_with_llm(llm_rec))
                     except Exception as ex:
@@ -2644,14 +2691,19 @@ class OverlayWindow(QMainWindow):
 
             # 3.2. Priority 0: Real-Time Lethal & Survival Calculation (First Principles)
             friendly_board_objs = payload.get("friendly_board_objs", [])
+            unknown_atk_count = 0
             if not friendly_board_objs and friendly:
                 for item in friendly:
-                    atk_val = 2
+                    atk_val = None
                     if "(" in str(item) and "/" in str(item):
                         try:
                             atk_val = int(str(item).split("(")[1].split("/")[0])
                         except Exception:
-                            atk_val = 2
+                            atk_val = None
+                    if atk_val is None:
+                        # Unknown attack: exclude from lethal math instead of guessing a value
+                        unknown_atk_count += 1
+                        continue
                     friendly_board_objs.append({"name": str(item), "atk": atk_val, "can_attack": True, "windfury": False})
 
             enemy_taunts = payload.get("enemy_taunt_objs", [])
@@ -2681,8 +2733,9 @@ class OverlayWindow(QMainWindow):
                     }
                     QLabel { background: transparent; border: none; padding: 0px; }
                 """)
+                unknown_note = f"（另有 {unknown_atk_count} 个随从攻击力未识别，未计入）" if unknown_atk_count else ""
                 self.lethal_detail_lbl.setText(
-                    f"可造成 {lethal_res.total_damage} 点斩杀伤害 (敌方血量 {lethal_res.target_hp}，溢出 {lethal_res.overkill} 点)！"
+                    f"可造成 {lethal_res.total_damage} 点斩杀伤害 (敌方血量 {lethal_res.target_hp}，溢出 {lethal_res.overkill} 点)！{unknown_note}"
                 )
                 self.lethal_steps_lbl.setText("<b>斩杀执行路径:</b><br>" + "<br>".join(f"• {s}" for s in lethal_res.action_steps))
                 self.sound_engine.notify_lethal(damage=lethal_res.total_damage)
@@ -2876,7 +2929,7 @@ class OverlayWindow(QMainWindow):
                     current_turn=turn,
                     has_coin=True,
                 )
-                if coin_strat:
+                if coin_strat and (coin_strat.should_coin_now or coin_strat.waste_warning) and not getattr(self, "is_zen_hud", False):
                     self.coin_frame.show()
                     if coin_strat.should_coin_now:
                         self.sound_engine.notify_coin_opportunity()
@@ -2889,22 +2942,12 @@ class OverlayWindow(QMainWindow):
                             }
                             QLabel { background: transparent; border: none; padding: 0px; }
                         """)
-                    elif coin_strat.waste_warning:
+                    else:
                         self.coin_title_lbl.setText("🪙 幸运币规划 ⚠️【切勿乱交！保留节奏】")
                         self.coin_frame.setStyleSheet("""
                             QFrame#coinFrame {
                                 background: rgba(239, 68, 68, 0.15);
                                 border: 1px solid #ef4444;
-                                border-radius: 6px;
-                            }
-                            QLabel { background: transparent; border: none; padding: 0px; }
-                        """)
-                    else:
-                        self.coin_title_lbl.setText("🪙 幸运币节奏曲线 (Coin Optimizer)")
-                        self.coin_frame.setStyleSheet("""
-                            QFrame#coinFrame {
-                                background: rgba(234, 179, 8, 0.10);
-                                border: 1px solid rgba(234, 179, 8, 0.35);
                                 border-radius: 6px;
                             }
                             QLabel { background: transparent; border: none; padding: 0px; }
@@ -3119,69 +3162,44 @@ class OverlayWindow(QMainWindow):
 
             # 6. Render trading & mana planning with optimal trades, face pivot & positioning
             trade_text_parts = []
-            if getattr(rec, "face_pivot_warning", ""):
-                trade_text_parts.append(f"🔥 **{rec.face_pivot_warning}**\n")
-            trade_text_parts.append(f"⚔️ {rec.trading_plan}")
-            if rec.optimal_trades:
-                trade_text_parts.append("\n**随从去向推演:**")
-                for ot in rec.optimal_trades[:3]:
-                    trade_text_parts.append(f"• {ot}")
-            if getattr(rec, "positioning_advice", ""):
-                trade_text_parts.append(f"\n♟️ **{rec.positioning_advice}**")
-            if getattr(rec, "mana_leak_audit", None):
-                mla = rec.mana_leak_audit
-                if mla.has_leak:
-                    trade_text_parts.append(f"\n{mla.audit_tag} **法力穿插:** {mla.weaving_advice}")
-                else:
-                    trade_text_parts.append(f"\n{mla.audit_tag} **费率兑现:** {mla.weaving_advice}")
-            elif getattr(rec, "mana_flow_tag", "") and getattr(rec, "mana_flow_preview", ""):
-                trade_text_parts.append(f"\n{rec.mana_flow_tag} **费率榨干:** {rec.mana_flow_preview}")
-            elif getattr(rec, "mana_plan", ""):
-                trade_text_parts.append(f"\n💡 {rec.mana_plan}")
-            self.play_trade_lbl.setText(format_tactical_text("\n".join(trade_text_parts)))
+            # 6. Render trading & mana planning (Simplified: only show specific trades, avoid redundant boilerplate)
+            is_zen = getattr(self, "is_zen_hud", False)
+            if is_zen:
+                self.play_trade_frame.hide()
+            elif rec.optimal_trades or getattr(rec, "face_pivot_warning", ""):
+                trade_text_parts = []
+                if getattr(rec, "face_pivot_warning", ""):
+                    trade_text_parts.append(f"🔥 **{rec.face_pivot_warning}**\n")
+                if rec.optimal_trades:
+                    trade_text_parts.append("**随从去向推演:**")
+                    for ot in rec.optimal_trades[:3]:
+                        trade_text_parts.append(f"• {ot}")
+                if getattr(rec, "positioning_advice", ""):
+                    trade_text_parts.append(f"\n♟️ **{rec.positioning_advice}**")
+                self.play_trade_lbl.setText(format_tactical_text("\n".join(trade_text_parts)))
+                self.play_trade_frame.show()
+            else:
+                self.play_trade_frame.hide()
 
-            # 7. Render risk warnings, burst danger, Discovery Radar & AOE Radar
+            # 7. Render high-priority actionable tactical risks (Simplified: top threats only, no cognitive overload)
             risk_lines = []
-            if getattr(rec, "opponent_punish_envelope", None):
-                env = rec.opponent_punish_envelope
-                risk_lines.append(f"🛡️ **【下轮极限威慑包络线 · T{env.next_turn_mana}费】**\n{env.envelope_badge}\n👉 {env.tactical_directive}")
-
             if rec.opponent_burst_danger and rec.opponent_burst_danger.threat_tier in {"CRITICAL_LETHAL", "HIGH_DANGER"}:
                 risk_lines.append(f"🚨 **【敌方斩杀防御】** {rec.opponent_burst_danger.survival_directive}")
-            elif getattr(rec, "burst_safety_warning", ""):
-                risk_lines.append(rec.burst_safety_warning)
+            elif rec.aoe_threats:
+                risk_lines.append(f"🌪️ **【防AOE清场】** {rec.aoe_threats[0]}")
+            elif getattr(rec, "opponent_punish_envelope", None):
+                env = rec.opponent_punish_envelope
+                risk_lines.append(f"🛡️ **【威慑包络】** {env.envelope_badge} · {env.tactical_directive}")
+            elif getattr(rec, "risk_warning", "") and "防范对手当回合" not in rec.risk_warning:
+                risk_lines.append(f"⚠️ {rec.risk_warning}")
 
-            if rec.discover_guidance:
-                risk_lines.append(f"🔮 **【实战发现抓取导向】** {rec.discover_guidance.priority_badge}: {rec.discover_guidance.guidance_text}")
-
-            if getattr(rec, "personal_weakness_reminder", ""):
-                risk_lines.append(f"💡 **【个人短板警示】** {rec.personal_weakness_reminder}")
-
-            if getattr(rec, "resilience_verdict", ""):
-                risk_lines.append(f"🛡️ **【局势抗灭韧性】** {rec.resilience_verdict}")
-
-            if getattr(rec, "rng_report", None) and rec.rng_report.summary_badge:
-                risk_lines.append(f"🎲 **【概率透视】** {rec.rng_report.summary_badge}")
-
-            if hasattr(self, "hand_tracker"):
-                neg_deductions = self.hand_tracker.get_negative_deductions()
-                if neg_deductions:
-                    neg_notes = [f"• 槽位#{d['slot']}: {d['deduction']}" for d in neg_deductions[:2]]
-                    risk_lines.append("🚫 **【对手未出牌负向排查】**\n" + "\n".join(neg_notes))
-
-            if hasattr(self, "hand_tracker"):
-                hand_matrix = self.hand_tracker.get_hand_reading_matrix()
-                if hand_matrix:
-                    risk_lines.append("🎯 **【对手留牌深度逆向读牌】**\n" + self.hand_tracker.get_reading_matrix_text())
-
-            if getattr(rec, "discovery_radar_warning", ""):
-                risk_lines.append(rec.discovery_radar_warning)
-            risk_lines.append(rec.risk_warning)
-            if rec.aoe_threats:
-                for at in rec.aoe_threats[:2]:
-                    if at not in rec.risk_warning:
-                        risk_lines.append(f"• {at}")
-            self.play_risk_lbl.setText(format_tactical_text("\n".join(risk_lines)))
+            if is_zen and not (rec.opponent_burst_danger and rec.opponent_burst_danger.threat_tier in {"CRITICAL_LETHAL", "HIGH_DANGER"}):
+                self.play_risk_frame.hide()
+            elif risk_lines:
+                self.play_risk_lbl.setText(format_tactical_text("\n".join(risk_lines)))
+                self.play_risk_frame.show()
+            else:
+                self.play_risk_frame.hide()
 
             # 8. Update compact capsule mode display
             top_action = rec.suggested_plays[0] if rec.suggested_plays else "观察局势"
@@ -3342,7 +3360,7 @@ class OverlayWindow(QMainWindow):
                         try:
                             enemy_field_atk += int(str(item).split("(")[1].split("/")[0])
                         except Exception:
-                            enemy_field_atk += 2
+                            pass
 
                 topdeck_advice: Optional[TopdeckAdvice] = TopdeckMath.calculate_endgame_odds(
                     deck_tracker=self.deck_tracker,
@@ -3407,6 +3425,63 @@ class OverlayWindow(QMainWindow):
         except Exception as e:
             logger.error(f"Error evaluating play turn: {e}", exc_info=True)
             self.play_actions_lbl.setText(f"出牌推演异常: {e}")
+
+    def _toggle_zen_hud(self) -> None:
+        """Toggles between Zen Focus HUD (action checklist only) and full diagnostic panels."""
+        self.is_zen_hud = not getattr(self, "is_zen_hud", False)
+        if self.is_zen_hud:
+            self.zen_hud_btn.setText("⚡ 极简")
+            self.zen_hud_btn.setStyleSheet("""
+                QPushButton {
+                    background: rgba(14, 165, 233, 0.28);
+                    color: #38bdf8;
+                    font-size: 10px;
+                    font-weight: bold;
+                    padding: 2px 7px;
+                    border-radius: 6px;
+                    border: 1px solid #38bdf8;
+                }
+            """)
+            if hasattr(self, "drawer_bar"):
+                self.drawer_bar.hide()
+            if hasattr(self, "intel_container"):
+                self.intel_container.hide()
+            if hasattr(self, "threat_radar_frame"):
+                self.threat_radar_frame.hide()
+            if hasattr(self, "play_trade_frame"):
+                self.play_trade_frame.hide()
+            if hasattr(self, "winrate_sparkline"):
+                self.winrate_sparkline.hide()
+            if hasattr(self, "posture_frame"):
+                self.posture_frame.hide()
+            self._on_status_updated("已开启极简对局模式 (聚焦核心出牌清单)")
+        else:
+            self.zen_hud_btn.setText("🎯 极简")
+            self.zen_hud_btn.setStyleSheet("""
+                QPushButton {
+                    background: rgba(255, 255, 255, 0.05);
+                    color: #94a3b8;
+                    font-size: 10px;
+                    font-weight: bold;
+                    padding: 2px 7px;
+                    border-radius: 6px;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                }
+                QPushButton:hover {
+                    background: rgba(56, 189, 248, 0.2);
+                    color: #38bdf8;
+                    border-color: #38bdf8;
+                }
+            """)
+            if hasattr(self, "drawer_bar"):
+                self.drawer_bar.show()
+            if hasattr(self, "intel_container"):
+                self.intel_container.show()
+            if hasattr(self, "winrate_sparkline"):
+                self.winrate_sparkline.show()
+            if hasattr(self, "posture_frame"):
+                self.posture_frame.show()
+            self._on_status_updated("已切回完整推演面板")
 
     def _switch_intel_tab(self, tab: str) -> None:
         """Toggles between Deck Tracker, Hand Reading, Coin/Compass, and Discover Lens in the tactical drawer."""
@@ -3520,16 +3595,17 @@ class OverlayWindow(QMainWindow):
         rec = self._current_rec
         is_rope = getattr(self, "is_rope_mode", False)
 
-        # Draw First Directive Warning Banner
-        if getattr(rec, "draw_first_directive", ""):
+        # Draw First Directive Warning Banner (compact alert, suppressed in Zen mode as it is in the checklist)
+        is_zen = getattr(self, "is_zen_hud", False)
+        if getattr(rec, "draw_first_directive", "") and not is_zen:
             self.draw_directive_lbl.setText(rec.draw_first_directive)
             self.draw_directive_frame.show()
         else:
             self.draw_directive_frame.hide()
 
-        # Next-Turn Threat Radar Chips
+        # Next-Turn Threat Radar Chips (hidden in Zen mode)
         threat_cards = getattr(rec, "next_turn_threat_cards", [])
-        if threat_cards:
+        if not is_zen and threat_cards:
             self.threat_radar_frame.show()
             chips = [f"<b>【{c['name']}】</b> ({c['cost']}费: {c['effect']})" for c in threat_cards[:3]]
             self.threat_radar_chips_lbl.setText(" • ".join(chips))
@@ -3855,6 +3931,36 @@ class OverlayWindow(QMainWindow):
         except Exception as pe:
             logger.warning(f"Failed to record weakness profile: {pe}")
 
+        # Record into DuckDB for empirical AI effect measurement closedloop
+        try:
+            from core.duckdb_manager import DuckDBManager
+            db = DuckDBManager.get_instance()
+            if db.is_available():
+                import time
+                cur_match_id = f"M_{int(time.time())}"
+                db.record_match_replay(
+                    match_id=cur_match_id,
+                    timestamp=time.time(),
+                    result=res_str,
+                    friendly_hero=friendly_name,
+                    opponent_hero=opp_name,
+                    summary=self._current_replay_summary,
+                )
+                eff = db.query_ai_effectiveness_report()
+                if eff.get("total_matches_analyzed", 0) >= 1:
+                    delta_val = eff.get('effectiveness_delta', 0.0)
+                    delta_tag = f"+{delta_val}%" if delta_val >= 0 else f"{delta_val}%"
+                    self.game_over_eff_lbl.setText(
+                        f"📊 <b>AI实战效能闭环</b>: 采纳建议胜率 <b style='color:#34d399;'>{eff['winrate_when_followed']}%</b> vs "
+                        f"偏离胜率 <b style='color:#f87171;'>{eff['winrate_when_diverged']}%</b> "
+                        f"(净增益: <b>{delta_tag}</b> · 样本: {eff['total_matches_analyzed']}局/{eff['total_turns_analyzed']}回合)"
+                    )
+                    self.game_over_eff_lbl.show()
+                else:
+                    self.game_over_eff_lbl.hide()
+        except Exception as e_duck:
+            logger.debug(f"DuckDB replay closedloop record error: {e_duck}")
+
         self.game_over_frame.show()
         self._on_status_updated(f"对局结算: {'胜利' if won else '惜败'} | 战局评级: {self._last_match_review.match_grade}")
         self._turn_history = []
@@ -4106,14 +4212,20 @@ class OverlayWindow(QMainWindow):
 
     def sync_hsreplay_data(self) -> None:
         """Triggers cloud HSReplay arena win-rate data synchronization."""
-        self._on_status_updated("🌐 正在同步 HSReplay 竞技场大数据胜率...")
-        def _cb(success: bool, msg: str):
-            if success:
-                self.sig_status_update.emit(f"✅ {msg}")
-            else:
-                self.sig_status_update.emit(f"⚠️ HSReplay 同步超时: {msg}")
+        self._on_status_updated("🌐 正在同步竞技场实战胜率数据 (Firestone)...")
 
-        HsreplaySync.get_instance().trigger_async_sync(_cb)
+        def _worker():
+            from core.arena_card_stats import ArenaCardStats
+            stats = ArenaCardStats.get_instance()
+            stats.ensure_context("global", blocking=True)
+            if stats.has_data():
+                n = len(stats._data.get("global", {}))
+                self.sig_status_update.emit(f"✅ 实战数据已更新: {n} 张卡 (数据时间 {stats.last_updated()[:16]})")
+            else:
+                self.sig_status_update.emit("⚠️ 实战数据同步失败，选牌暂用规则估分")
+
+        import threading
+        threading.Thread(target=_worker, daemon=True).start()
 
     def check_app_updates(self) -> None:
         """Manually checks for application and card database updates."""
