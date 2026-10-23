@@ -88,6 +88,24 @@ class ArenaCareerVault:
                     )
                     for item in data.get("runs", [])
                 ]
+                # Sync to DuckDB
+                try:
+                    from .duckdb_manager import DuckDBManager
+                    db = DuckDBManager.get_instance()
+                    if db.is_available() and db.query_scalar("SELECT count(*) FROM career_runs") == 0:
+                        for r in self.runs:
+                            db.record_career_run(
+                                run_id=r.run_id,
+                                timestamp=r.timestamp,
+                                hero_class=r.hero_class,
+                                wins=r.wins,
+                                losses=r.losses,
+                                deck_cards=r.deck_card_names,
+                                mvp_card=r.mvp_card,
+                                is_twelve_wins=r.is_twelve_wins,
+                            )
+                except Exception as ex:
+                    logger.debug(f"DuckDB career sync on load: {ex}")
         except Exception as e:
             logger.warning(f"Failed to load career data: {e}")
 
@@ -114,7 +132,34 @@ class ArenaCareerVault:
         )
         self.runs.append(rec)
         self.save()
+        try:
+            from .duckdb_manager import DuckDBManager
+            db = DuckDBManager.get_instance()
+            if db.is_available():
+                db.record_career_run(
+                    run_id=rec.run_id,
+                    timestamp=rec.timestamp,
+                    hero_class=rec.hero_class,
+                    wins=rec.wins,
+                    losses=rec.losses,
+                    deck_cards=rec.deck_card_names,
+                    mvp_card=rec.mvp_card,
+                    is_twelve_wins=rec.is_twelve_wins,
+                )
+        except Exception as e:
+            logger.debug(f"DuckDB record_run sync: {e}")
         return rec
+
+    def get_duckdb_summary(self) -> Optional[Dict[str, Any]]:
+        """Calculates multi-dimensional career statistics via DuckDB vectorized OLAP."""
+        try:
+            from .duckdb_manager import DuckDBManager
+            db = DuckDBManager.get_instance()
+            if db.is_available():
+                return db.aggregate_career_summary()
+        except Exception as e:
+            logger.debug(f"DuckDB get_duckdb_summary error: {e}")
+        return None
 
     def get_summary(self) -> CareerSummary:
         total_runs = len(self.runs)

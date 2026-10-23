@@ -87,6 +87,26 @@ class HsreplaySync:
         self.winrate_modifiers: Dict[str, float] = dict(TIER_MODIFIERS)
         self.last_sync_time: float = 0.0
         self._load_cache()
+        self.sync_to_duckdb()
+
+    def sync_to_duckdb(self) -> None:
+        """Populates card_meta table in DuckDB with latest meta metrics."""
+        try:
+            from .duckdb_manager import DuckDBManager
+            db = DuckDBManager.get_instance()
+            if not db.is_available():
+                return
+            rows = []
+            for cid, data in BASE_META_ANALYTICS.items():
+                delta = self.get_card_winrate_delta(cid, data["name"])
+                rows.append((
+                    cid, data["name"], data["tier"], data["deck_wr"],
+                    data["played_wr"], data["inclusion"], delta, data.get("synergy", "")
+                ))
+            if rows:
+                db.bulk_upsert_card_meta(rows)
+        except Exception as e:
+            logger.debug(f"DuckDB hsreplay sync: {e}")
 
     def _load_cache(self) -> None:
         if self.cache_file.exists():

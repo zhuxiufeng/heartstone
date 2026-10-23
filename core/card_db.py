@@ -571,6 +571,72 @@ class CardDatabase:
         self._fuzzy_cache[cache_key] = None
         return None
 
+    def query_sql(self, sql: str, params: Optional[List[Any]] = None) -> List[Dict[str, Any]]:
+        """Queries card database using DuckDB vectorized SQL engine."""
+        try:
+            from .duckdb_manager import DuckDBManager
+            db = DuckDBManager.get_instance()
+            if not db.is_available():
+                return []
+            if db.query_scalar("SELECT count(*) FROM cards") == 0:
+                if self.cache_file and self.cache_file.exists():
+                    db.ingest_cards_from_json(self.cache_file)
+                elif self.cards_by_id:
+                    db.ingest_cards(list(self.cards_by_id.values()))
+            return db.query_dicts(sql, params)
+        except Exception as e:
+            logger.warning(f"Error querying cards via DuckDB: {e}")
+            return []
+
+    def filter_cards_sql(
+        self,
+        cost: Optional[int] = None,
+        min_cost: Optional[int] = None,
+        max_cost: Optional[int] = None,
+        card_type: Optional[str] = None,
+        card_class: Optional[str] = None,
+        keyword: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[CardInfo]:
+        """Fast multi-condition SQL query returning CardInfo objects via DuckDB with fallback."""
+        try:
+            from .duckdb_manager import DuckDBManager
+            db = DuckDBManager.get_instance()
+            if db.is_available():
+                if db.query_scalar("SELECT count(*) FROM cards") == 0:
+                    if self.cache_file and self.cache_file.exists():
+                        db.ingest_cards_from_json(self.cache_file)
+                    elif self.cards_by_id:
+                        db.ingest_cards(list(self.cards_by_id.values()))
+                rows = db.filter_cards(
+                    cost=cost,
+                    min_cost=min_cost,
+                    max_cost=max_cost,
+                    card_type=card_type,
+                    card_class=card_class,
+                    keyword=keyword,
+                    limit=limit,
+                )
+                return [self.cards_by_id[r["id"]] for r in rows if r.get("id") in self.cards_by_id]
+        except Exception as e:
+            logger.debug(f"DuckDB filter_cards_sql fallback: {e}")
+
+        # In-memory python fallback
+        res = list(self.cards_by_id.values())
+        if cost is not None:
+            res = [c for c in res if c.cost == cost]
+        if min_cost is not None:
+            res = [c for c in res if c.cost >= min_cost]
+        if max_cost is not None:
+            res = [c for c in res if c.cost <= max_cost]
+        if card_type:
+            res = [c for c in res if getattr(c, "card_type", "").upper() == card_type.upper()]
+        if card_class:
+            res = [c for c in res if getattr(c, "card_class", "").upper() == card_class.upper()]
+        if keyword:
+            res = [c for c in res if keyword in c.name or keyword in (getattr(c, "text", "") or "")]
+        return res[:limit]
+
 
 try:
     from PyQt5.QtCore import QThread, pyqtSignal

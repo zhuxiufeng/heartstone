@@ -66,6 +66,24 @@ class MatchHistoryLearner:
                             for m in data
                         ]
                         logger.info(f"Loaded {len(self.matches)} match records.")
+                        # Sync to DuckDB
+                        try:
+                            from .duckdb_manager import DuckDBManager
+                            db = DuckDBManager.get_instance()
+                            if db.is_available() and db.query_scalar("SELECT count(*) FROM match_events") == 0:
+                                for m in self.matches:
+                                    db.record_match_event(
+                                        match_id=f"M_{int(m.timestamp)}",
+                                        timestamp=m.timestamp,
+                                        result=m.result,
+                                        friendly_hero=m.friendly_hero,
+                                        opponent_hero=m.opponent_hero,
+                                        turn_count=m.turn_count,
+                                        loss_reason=m.loss_reason,
+                                        deck_cards=m.deck_card_ids,
+                                    )
+                        except Exception as ex:
+                            logger.debug(f"DuckDB match history sync on load: {ex}")
             except Exception as e:
                 logger.warning(f"Failed to load match history: {e}")
 
@@ -98,6 +116,22 @@ class MatchHistoryLearner:
         )
         self.matches.append(rec)
         self.save()
+        try:
+            from .duckdb_manager import DuckDBManager
+            db = DuckDBManager.get_instance()
+            if db.is_available():
+                db.record_match_event(
+                    match_id=f"M_{int(rec.timestamp)}",
+                    timestamp=rec.timestamp,
+                    result=rec.result,
+                    friendly_hero=rec.friendly_hero,
+                    opponent_hero=rec.opponent_hero,
+                    turn_count=rec.turn_count,
+                    loss_reason=rec.loss_reason,
+                    deck_cards=rec.deck_card_ids,
+                )
+        except Exception as e:
+            logger.debug(f"DuckDB record_match_event sync: {e}")
         logger.info(f"Recorded match: {result} ({friendly_hero} vs {opponent_hero})")
 
     def get_card_winrate_adjustment(self, card_id: str) -> float:
